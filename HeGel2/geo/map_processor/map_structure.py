@@ -57,7 +57,7 @@ class Map:
             self.num_poi = self.poi.shape[0]
             logging.info("Constructing graph.")
             self.nx_graph = ox.graph_from_polygon(
-                self.polygon_area, network_type="walk"
+                self.polygon_area, network_type="all"
             )
             distance = nx.get_edge_attributes(self.nx_graph, "length")
             nx.set_edge_attributes(self.nx_graph, distance, "true_length")
@@ -83,8 +83,9 @@ class Map:
         self.calc_s2cells(level)
 
         self.nodes, self.edges = ox.graph_to_gdfs(self.nx_graph)
+        print(self.edges.columns)
 
-        self.process_param()
+        # self.process_param()
 
     def process_param(self):
         """Helper function for processing the class data objects."""
@@ -92,7 +93,7 @@ class Map:
         # Drop columns with list type.
         self.edges.drop(
             self.edges.columns.difference(
-                ["osmid", "true_length", "length", "geometry", "u", "v", "key", "name"]
+                ["osmid", "true_length", "length", "geometry", "u", "v", "key", "name", "type", "highway"]
             ),
             1,
             inplace=True,
