@@ -1,9 +1,8 @@
 import multiprocessing
-import os
-from pathlib import Path
+from typing import Optional
 
-from HeGel2.geo import regions, walk
-from HeGel2.geo.map_structure import Map
+from HeGel2.geo.map_processor import regions
+from HeGel2.geo.map_processor.map_structure import Map
 
 REGION = "TelAvivSmall"
 MAP_DIR = f"/home/nlp/itaimond1/Thesis/HeGEL/HeGel2/HeGel2/geo/map/{REGION}/"
@@ -13,9 +12,14 @@ S2_LEVEL = 14
 n_cpu = multiprocessing.cpu_count() - 1
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f"Hi, {name}")  # Press ⌘F8 to toggle the breakpoint.
+def create_osm_graph(region: str, map_data_dir: Optional[str], s2_level: int = 14) -> Map:
+    return Map(regions.get_region(region), s2_level, map_data_dir) if map_data_dir is not None else (
+        Map(regions.get_region(region), s2_level))
+
+
+def main():
+    pass
+
 
 
 # Press the green button in the gutter to run the script.
