@@ -1,62 +1,58 @@
-import osmnx as ox
 from typing import Optional, Dict, List, Tuple
 from geopandas import GeoDataFrame
 from networkx import Mipython, MultiDiGraph
 import pandas
+import pandas as pd
+import shapely
+from shapely.geometry import Point
+import geopandas as gpd
+import osmnx as ox
+import numpy as np
+from ..map_processor.map_structure import Map
+from .utils import flatten_list, polygonizer, azimuth_to_street
 
 MINIMAL_DIST = 50
 
 
-# get street name
-def get_street_name(end_point: pandas.Series) -> Optional[str]:
-    """
-    :param end_point: POI
-    :return: Street Name which closet to the POI, otherwise None
-    """
-    geometry = end_point.centroid
-    graph = ox.graph_from_point(geometry, dist=500, network_type='all')
-    nearest_node: int = ox.distance.nearest_nodes(graph, geometry.x, geometry.y)
-    if nearest_node:
-        incident_edges: List[Tuple[int, int]] = [(u, v) for u, v, data in graph.edges(nearest_node, data=True)]
-        street_names: List[str] = [data['name'] for u, v, data in graph.edges(data=True) if
-                                   (u, v) in incident_edges or (v, u) in incident_edges]
-        nearest_street_name = street_names[0] if street_names else None
-        return nearest_street_name
+class GeoFeatures:
 
+    def __init__(self, map: Map):
+        # Create Map
+        self.map = map
 
-def get_close_intersection(end_point: pandas.Series) -> Optional[List[str]]:
-    """
-    :param end_point: POI
-    :return: List of strings if there is an intersection close to the point, otherwise None
-    """
-    px, py = end_point.centroid
-    graph: MultiDiGraph = ox.graph.graph_from_point((py, px), dist=MINIMAL_DIST)
-    if graph:
-        intersection = [node for node, degree in dict(graph.degree()).items() if degree >= 2][0]
-        incident_edges = graph.edges(intersection, data=True)
-        street_names: List[str] = [data['name'] for _, _, data in incident_edges]
-        return street_names
+    def get_streets(self, osm_id: int) -> List[str]:
+        streets = self.map.edges.loc[self.map.edges['v'] == osm_id, 'name'].tolist()
+        return flatten_list(streets)
 
+    def is_poi_in_junction(self, osmid: int):
+        return dict(self.map.nx_graph.degree())[osmid] >= 4
 
-def _get_bearing(bearing: int) -> str:
-    """
-    Returns the cardinal direction of a given bearing angle in degrees.
-    """
-    if 0 <= bearing <= 90:
-        location = "northeast"
-    elif 90 < bearing <= 180:
-        location = "southeast"
-    elif 180 < bearing <= 270:
-        location = "southwest"
-    else:
-        location = "northwest"
-    return location
+    def get_nearby_streets(self, lat, lng, is_primery=False):
+        """
+        Returns the nearby streets to the POI
+        """
+        point = Point(lng, lat)
+        streets = self.map.streets[self.map.streets.geometry.type == 'LineString'].reset_index()
+        streets.dropna(subset='name', inplace=True)
+        streets['type'] = streets['name'].apply(lambda x: type(x))
+        streets = streets[streets['type'] != list]
+        if is_primery:
+            streets = streets[
+                streets['highway'].isin(
+                    ['trunk', 'primary', 'motorway', 'tertiary', 'secondary', 'footway', 'service'])]
+        streets['azimuth'] = streets['geometry'].apply(lambda x: azimuth_to_street(point, x))
+        polygons = polygonizer(streets['geometry'].to_list())
+        streets = streets.drop('index', axis=1)
+        streets = streets.drop('level_0', axis=1)
+        sjoin_polygons = gpd.sjoin(polygons, streets, predicate='covers')
+        polygons['names'] = sjoin_polygons.groupby('index').agg(set)['name']
+        return polygons[polygons.contains(point)], polygons
 
+    # def relative_location_to_city_center(city_gdf: GeoDataFrame, end_point: pandas.Series) -> str:
+    #     city_center = city_gdf.centroid.iloc[0]
+    #     bearing = ox.bearing.calculate_bearing(city_center.y, city_center.x,
+    #                                            end_point.centroid[0], end_point.centroid[1])
+    #     return _get_bearing(bearing)
 
-def relative_location_to_city_center(city_gdf: GeoDataFrame, end_point: pandas.Series) -> str:
-    city_center = city_gdf.centroid.iloc[0]
-    bearing = ox.bearing.calculate_bearing(city_center.y, city_center.x,
-                                           end_point.centroid[0], end_point.centroid[1])
-    return _get_bearing(bearing)
-
-
+# poly, polygons = get_nearby_streets(32.073599, 34.781754, 500, False)
+# poly
