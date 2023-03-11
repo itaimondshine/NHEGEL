@@ -1,17 +1,21 @@
+import math
+from typing import List, Tuple, Optional
+
+import numpy as np
 import shapely
 import geopandas as gpd
 from math import atan2, degrees
 
 
-def flatten_list(l):
-    flatten_list = []
-    for x in l:
-            if type(x).__name__ == 'list':
-                for j in x:
-                    flatten_list.append(j)
-            else:
-                flatten_list.append(x)
-    return list(set(flatten_list))
+def flatten_list(streets: List[Tuple[Optional[str], List[str]]]) -> List[str]:
+    valid_streets = []
+    for street in streets:
+        if type(street).__name__ == 'list':
+            for sub_list in street:
+                valid_streets.append(sub_list)
+        elif not str(street) == 'nan':
+            valid_streets.append(street)
+    return list(set(valid_streets))
 
 
 def polygonizer(lines):
@@ -31,7 +35,6 @@ def azimuth_to_street(point, street):
     if azimuth <= 0:
         azimuth += 360
     return int(np.round(azimuth))
-
 
     def _get_bearing(bearing: int) -> str:
         """
