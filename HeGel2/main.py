@@ -35,13 +35,16 @@ class BaseRun:
     def run_extractors(self, row, sema, return_dict):
         # sema.acquire()
         geometry = row['geometry']
-        # osmid = row['osmid']
+        osmid = row['osmid']
         # print(osmid)
         # street_names = self.geo_features.get_streets(osmid)
         # is_junction = self.geo_features.is_poi_in_junction(osmid)
         # lat, lon = geometry.x, geometry.y
         # nearby_streets = self.geo_features.get_nearby_streets(lon, lat)
-        neighborhood = self.geo_features.get_neighborhood(geometry)
+        # relation = self.geo_features.get_relation_in_street(osmid, geometry)
+        distance, bearing = self.geo_features.get_distance_from_city_center(geometry)
+        print(f"{distance}, {bearing}")
+        # neighborhood = self.geo_features.get_neighborhood(geometry)
 
         # print(nearby_streets)
         # doc = PoiData(osmid=osmid, location= Point(coordinates=[geometry.x, geometry.y]),
@@ -72,7 +75,7 @@ class BaseRun:
 
         # 2. Extract geo features from POI-s
 
-        for i in range(0, 500, settings.BATCH_SIZE):
+        for i in range(0, 2000, settings.BATCH_SIZE):
             batch = self.map_nodes.iloc[i:i + settings.BATCH_SIZE]
             return_dict = manager.dict()
             jobs = []

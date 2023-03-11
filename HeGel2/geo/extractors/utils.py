@@ -36,7 +36,8 @@ def azimuth_to_street(point, street):
         azimuth += 360
     return int(np.round(azimuth))
 
-    def _get_bearing(bearing: int) -> str:
+
+def get_bearing(bearing: int) -> str:
         """
         Returns the cardinal direction of a given bearing angle in degrees.
         """

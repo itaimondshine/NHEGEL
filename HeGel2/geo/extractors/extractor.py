@@ -5,9 +5,9 @@ from shapely.geometry import Point
 import geopandas as gpd
 from ..map_processor.map_structure import Map
 import osmnx as ox
-from .utils import flatten_list, polygonizer, azimuth_to_street
+from .utils import flatten_list, polygonizer, azimuth_to_street, get_bearing
 from pathlib import Path
-
+from shapely.ops import unary_union
 
 MINIMAL_DIST = 50
 NEIGHBORHOODS_LIBRARY = 'HeGel2/geo/extractors/city_polygons/'
@@ -31,7 +31,7 @@ class GeoFeatures:
         self.edges = map.edges.reset_index()
         self.polygons = self.get_polygons()
         self.city_polygons = gpd.read_file(f'{Path(NEIGHBORHOODS_LIBRARY).joinpath(city)}_neighborhoods.geojson')
-
+        self.city_center = unary_union(map.nodes.geometry).centroid
 
     def get_streets(self, osm_id: int) -> List[str]:
         streets = self.edges.loc[self.edges['v'] == osm_id, 'name'].tolist()
@@ -72,12 +72,35 @@ class GeoFeatures:
             return None
 
     def get_neighborhood(self, geometry: shapely.geometry.Point) -> Optional[str]:
-        print(self.city_polygons[self.city_polygons.contains(geometry)])
         neighborhoods_series = self.city_polygons[self.city_polygons.contains(geometry)]
-        print(type(neighborhoods_series))
         if neighborhoods_series:
             return neighborhoods_series.values[0]
 
+    def get_relation_in_street(self, osmid: int, point: Point) -> Optional[str]:
+        """
+        Returns None if no street recognized
+        """
+        street_name = self.get_streets(osmid)
+        if len(street_name) > 0:
+            street_name = self.get_streets(osmid)[0]
+            total_bounds: List[int] = self.map.streets[self.map.streets.name == street_name].total_bounds
+            x_first, y_first = total_bounds[:2]
+            x_second, y_second = total_bounds[2:]
+            distance_to_first_bound: int = Point(x_first, y_first).distance(point)
+            distance_to_second_bound: int = Point(x_second, y_second).distance(point)
+            relation = distance_to_first_bound / (distance_to_first_bound + distance_to_second_bound)
+            return 'Start' if relation < 0.4 else 'Middle' if relation < 0.6 else 'End'
+
+    def get_distance_from_city_center(self, point: Point) -> Tuple[int, str]:
+        """
+        Calculates the cardinal direction from the city center
+        """
+        print(self.city_center)
+        distance = ox.distance.great_circle_vec(self.city_center.x, self.city_center.y, point.x, point.y)
+        bearing = ox.bearing.calculate_bearing(self.city_center.x, self.city_center.y, point.x, point.y)
+        print(bearing)
+        bearing_relation = get_bearing(bearing)
+        return distance, bearing_relation
 
 
 
