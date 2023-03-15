@@ -1,5 +1,6 @@
 from typing import Optional, Dict, List, Tuple, Set
 
+import pandas as pd
 import shapely.geometry
 from shapely.geometry import Point
 import geopandas as gpd
@@ -29,9 +30,11 @@ class GeoFeatures:
         self.city = city
         self.map = map
         self.edges = map.edges.reset_index()
-        self.polygons = self.get_polygons()
         self.city_polygons = gpd.read_file(f'{Path(NEIGHBORHOODS_LIBRARY).joinpath(city)}_neighborhoods.geojson')
         self.city_center = unary_union(map.nodes.geometry).centroid
+        self.streets = ox.graph_to_gdfs(ox.graph_from_place('Tel Aviv, Israel', network_type='all'), nodes=False,
+                                        edges=True)
+        self.polygons_is_no_primery, self.polygons_is_primery = self.get_polygons()
 
     def get_streets(self, osm_id: int) -> List[str]:
         streets = self.edges.loc[self.edges['v'] == osm_id, 'name'].tolist()
@@ -41,40 +44,45 @@ class GeoFeatures:
     def is_poi_in_junction(self, osmid: int):
         return dict(self.map.nx_graph.degree())[osmid] >= 4
 
-    def get_polygons(self):
-        """
-        Creates Polygons Initially
-        """
-        streets = self.map.streets[self.map.streets.geometry.type == 'LineString'].reset_index()
-        # streets = streets.set_crs("EPSG:4326", allow_override=True)
-
-        streets.dropna(subset='name', inplace=True)
-        streets['type'] = streets['name'].apply(lambda x: type(x))
-        streets = streets[streets['type'] != list]
-        # if is_primery:
-        #     streets = streets[
-        #         streets['highway'].isin(
-        #             ['trunk', 'primary', 'motorway', 'tertiary', 'secondary', 'footway', 'service'])]
-        # streets['azimuth'] = streets['geometry'].apply(lambda x: azimuth_to_street(point, x))
+    def _to_polygons(self, streets: pd.DataFrame):
         polygons = polygonizer(streets['geometry'].to_list())
         sjoin_polygons = gpd.sjoin(polygons, streets, predicate='covers')
         polygons['names'] = sjoin_polygons.groupby('index').agg(set)['name']
         return polygons
 
-    def get_nearby_streets(self, lon, lat) -> Optional[List[str]]:
+    def get_polygons(self):
         """
-        Returns the nearby streets to the POI
+        Creates Polygons Initially
         """
-        point = Point(lat, lon)
+        self.streets.dropna(subset='name', inplace=True)
+        self.streets.reset_index(inplace=True)
+        self.streets['type'] = self.streets['name'].apply(lambda x: type(x))
+        streets_no_primery = self.streets[self.streets['type'] != list]
+        streets_primery = streets_no_primery[
+            streets_no_primery['highway'].isin(['trunk', 'primary', 'motorway', 'tertiary', 'secondary',
+                                                'footway', 'service'])]
+        polygons_no_primery, polygons_primery = self._to_polygons(streets_no_primery), self._to_polygons(
+            streets_primery)
+        return polygons_no_primery, polygons_primery
+
+    def get_nearby_streets(self, lon, lat, is_primery) -> Optional[List[str]]:
+        """
+        Returns the nearby streets to the POI, if True - returns primery streets, False, for non primery streets
+        """
+
+        point = Point(float('{:.4f}'.format(lon)), float('{:.4f}'.format(lat)))
+        print(self.polygons_is_no_primery[self.polygons_is_no_primery.contains(point)]['names'])
         try:
-            return list(self.polygons[self.polygons.contains(point)]['names'].iloc[0])
+            return (
+                list(self.polygons_is_primery[self.polygons_is_primery.contains(point)]['names'].iloc[0]) if is_primery
+                else list(self.polygons_is_no_primery[self.polygons_is_no_primery.contains(point)]['names'].iloc[0]))
         except:
             return None
 
     def get_neighborhood(self, geometry: shapely.geometry.Point) -> Optional[str]:
         neighborhoods_series = self.city_polygons[self.city_polygons.contains(geometry)]
-        if neighborhoods_series:
-            return neighborhoods_series.values[0]
+        if neighborhoods_series['name'].any():
+            return neighborhoods_series['name'].iloc[0]
 
     def get_relation_in_street(self, osmid: int, point: Point) -> Optional[str]:
         """
@@ -95,15 +103,11 @@ class GeoFeatures:
         """
         Calculates the cardinal direction from the city center
         """
-        print(self.city_center)
+
         distance = ox.distance.great_circle_vec(self.city_center.x, self.city_center.y, point.x, point.y)
         bearing = ox.bearing.calculate_bearing(self.city_center.x, self.city_center.y, point.x, point.y)
-        print(bearing)
         bearing_relation = get_bearing(bearing)
         return distance, bearing_relation
-
-
-
 
     # def relative_location_to_city_center(city_gdf: GeoDataFrame, end_point: pandas.Series) -> str:
     #     city_center = city_gdf.centroid.iloc[0]
