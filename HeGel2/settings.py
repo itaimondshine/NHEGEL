@@ -1,8 +1,8 @@
 import multiprocessing
 
 BATCH_SIZE = 50
-REGION = "TelAvivSmall"
-MAP_DIR = f"/home/nlp/itaimond1/Thesis/HeGEL/HeGel2/HeGel2/geo/map/{REGION}/"
+REGION = "Tel Aviv"
+MAP_DIR = "/Users/itaimondshine/PycharmProjects/NLP/HeGel2/HeGel2/HeGel2/geo/map_processor/resources/tel_aviv"
 MAP_DATA_DIR = f"{MAP_DIR}/{REGION}_paths.gpkg"
 
 S2_LEVEL = 14

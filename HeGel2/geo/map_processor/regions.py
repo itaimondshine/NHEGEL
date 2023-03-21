@@ -72,7 +72,7 @@ SUPPORTED_REGIONS = [
     ),
     Region(
         name="Tel Aviv",
-        polygon=box(minx=34.739131, miny=32.0293437, maxx=34.8038, maxy=32.093),
+        polygon=box(minx=34.7672, miny=32.0620, maxx=34.7802, maxy=32.0700),
     ),
     Region(
         name="Jerusalem",

@@ -18,12 +18,16 @@ class BaseRun:
 
     def __init__(self, map: Map):
         self.map = map
-        self.map_nodes = self._process_map_nodes(map)
+        self.map_nodes = map.poi
         self.geo_features = GeoFeatures('Tel_Aviv', map)
 
     def run_extractors(self, row, sema, return_dict):
-        geometry = row['geometry']
+        name = row['name'] if row['name'] else row['wikipedia']
+        amenity = row['amenity'] if row['amenity'] else row['tourism'] if row['tourism'] else row['building'] if row[
+            'building'] else row['description']
+        geometry = row['centroid']
         osmid = row['osmid']
+        print(f"{name}: {amenity}")
         street_names = self.geo_features.get_streets(osmid)
         is_junction = self.geo_features.is_poi_in_junction(osmid)
         lat, lon = geometry.x, geometry.y
@@ -33,16 +37,20 @@ class BaseRun:
         distance, bearing = self.geo_features.get_distance_from_city_center(geometry)
         neighbourhood = self.geo_features.get_neighborhood(geometry)
 
-        doc = PoiData(osmid=osmid, location=Point(coordinates=[geometry.x, geometry.y]),
-                      is_junctfion=is_junction, street_names=street_names,
-                      nearby_to_non_primery_streets=no_primery_nearby_streets,
-                      nearby_to_primery_streets=primery_nearby_streets,
-                      relation_in_street=relation,
-                      neighbourhood=neighbourhood,
-                      cardinal_direction_to_city_center=bearing,
-                      distance_from_city_center=distance)
+        doc = PoiData(osmid=osmid,
+                      name=name,
+                      amenity=amenity,
+        location=Point(coordinates=[geometry.x, geometry.y]),
+        is_junction=is_junction, street_names=street_names,
+        nearby_to_non_primery_streets=no_primery_nearby_streets,
+        nearby_to_primery_streets=primery_nearby_streets,
+        relation_in_street=relation,
+        neighbourhood=neighbourhood,
+        cardinal_direction_to_city_center=bearing,
+        distance_from_city_center=distance)
 
-        insert_document(doc)
+        print(doc)
+        # insert_document(doc)
 
     def process_batch(self, batch):
         with multiprocessing.Pool(multiprocessing.cpu_count() - 1) as pool:
@@ -77,8 +85,8 @@ class BaseRun:
 
 def main():
     # 1. Create Map Object
-    map: Map = Map(regions.get_region(settings.REGION), settings.S2_LEVEL)
-
+    map: Map = Map(regions.get_region(settings.REGION), settings.S2_LEVEL, settings.MAP_DIR)
+    print(map)
     # 2. Create a BaseRun Object and run
 
     b = BaseRun(map)

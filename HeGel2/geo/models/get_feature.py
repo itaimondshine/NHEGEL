@@ -4,7 +4,9 @@ from geojson_pydantic import Point
 
 
 class PoiData(BaseModel):
-    osmid: int
+    osmid: str
+    name: Optional[str]
+    amenity: Optional[str]
     point: Point = Field(..., alias="location")
     street_names: List[str]
     is_junction: bool = None

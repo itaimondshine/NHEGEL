@@ -15,12 +15,23 @@ NEIGHBORHOODS_LIBRARY = 'HeGel2/geo/extractors/city_polygons/'
 
 
 def create_neighborhood_json(city: str):
-    city_graph = ox.geometries_from_place(f'{city}, Israel', {'place': 'suburb'})[['name', 'geometry']]
-    city_graph.to_file(f'city_polygons/{city}.geojson', driver='GeoJSON')
+    city_graph_option1 = ox.geometries_from_place(f'{city}', {'place': 'suburb'})[['name', 'geometry']]
+    city_graph_option2 = ox.geometries_from_place(f'{city}', {'boundary': 'administrative'})[['name', 'geometry']]
 
-    # Alternative way, again not working for all the places
-    city_graph = ox.geometries_from_place(f'{city}', {'boundary': 'administrative'})[['name', 'geometry']]
-    city_graph.to_file(f'city_polygons/{city}', driver='GeoJSON')
+    concatenated_gpd = pd.concat([city_graph_option2, city_graph_option1], axis=0)
+    concatenated_gpd = concatenated_gpd.dropna(subset=['name']).reset_index()
+    concatenated_gpd['area'] = concatenated_gpd['geometry'].area
+    concatenated_gpd = concatenated_gpd.loc[concatenated_gpd['area'] < 0.000310]
+
+    concatenated_points = concatenated_gpd.loc[concatenated_gpd.geom_type == 'Point']
+    concatenated_polygons = concatenated_gpd.loc[concatenated_gpd.geom_type == 'Polygon']
+
+    concatenated_gdf_has_no_polygons = concatenated_points[
+        ~ concatenated_points['name'].isin(concatenated_polygons['name'])]
+    concatenated_gdf_has_no_polygons_to_polygons = concatenated_gdf_has_no_polygons.buffer(0.006)
+    concatenated_gdf_has_no_polygons['geometry'] = concatenated_gdf_has_no_polygons_to_polygons
+    neighborhood_gdf = pd.concat([concatenated_polygons, concatenated_gdf_has_no_polygons], axis=0)
+    return neighborhood_gdf
 
 
 class GeoFeatures:
@@ -36,13 +47,19 @@ class GeoFeatures:
                                         edges=True)
         self.polygons_is_no_primery, self.polygons_is_primery = self.get_polygons()
 
-    def get_streets(self, osm_id: int) -> List[str]:
-        streets = self.edges.loc[self.edges['v'] == osm_id, 'name'].tolist()
-        valid_streets = flatten_list(streets)
-        return valid_streets
+    def get_streets(self, osm_id: str) -> List[str]:
+        osm_id = osm_id if osm_id.startswith('#') else int(osm_id)
+        osmid = self.edges[self.edges['u'] == osm_id].iloc[0]['osmid']
+        optional_streets = self.edges[self.edges['osmid'] == osmid]['name'].to_list()
+        streets = [edge for edge in optional_streets if edge != 'poi']
+        return flatten_list(streets)
+        # streets = self.edges.loc[self.edges['v'] == osm_id, 'name'].tolist()
+        # valid_streets = flatten_list(streets)
+        # return valid_streets
 
-    def is_poi_in_junction(self, osmid: int):
-        return dict(self.map.nx_graph.degree())[osmid] >= 4
+    def is_poi_in_junction(self, osmid: str) -> bool:
+        valid_osmid = osmid if osmid.startswith('#') else int(osmid)
+        return dict(self.map.nx_graph.degree())[valid_osmid] >= 4
 
     def _to_polygons(self, streets: pd.DataFrame):
         polygons = polygonizer(streets['geometry'].to_list())
@@ -96,7 +113,10 @@ class GeoFeatures:
             x_second, y_second = total_bounds[2:]
             distance_to_first_bound: int = Point(x_first, y_first).distance(point)
             distance_to_second_bound: int = Point(x_second, y_second).distance(point)
-            relation = distance_to_first_bound / (distance_to_first_bound + distance_to_second_bound)
+            if distance_to_second_bound == distance_to_first_bound == 0:
+                relation = 0
+            else:
+                relation = distance_to_first_bound / (distance_to_first_bound + distance_to_second_bound)
             return 'Start' if relation < 0.4 else 'Middle' if relation < 0.6 else 'End'
 
     def get_distance_from_city_center(self, point: Point) -> Tuple[int, str]:

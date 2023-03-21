@@ -13,24 +13,28 @@
 # limitations under the License.
 
 
+from absl import logging
 import copy
-import os
-from typing import Any, List, Optional, Sequence, Text, Tuple
-
+import geopandas as gpd
+from geopandas import GeoSeries
 import networkx as nx
+import os
 import osmnx as ox
 import pandas as pd
-from absl import logging
-from geopandas import GeoSeries
-from shapely.geometry import LineString
-from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.point import Point
 from shapely.geometry.polygon import Polygon
+from shapely.geometry import LineString
+from shapely.geometry.multipolygon import MultiPolygon
+
+import swifter
+from typing import Tuple, Sequence, Text, Optional, List, Any
 
 from HeGel2.geo.extractors import util
-from HeGel2.geo.map_processor import edge, osm, regions
+from HeGel2.geo.map_processor import edge
+from HeGel2.geo.map_processor import regions
+from HeGel2.geo.map_processor import osm
 
-POI_PREFIX = "#"
+POI_PREFIX = '#'
 SHOW_PROGRESS_EVERY = 100
 # Addition of distance to POI edges in order to prevent shortcut route through
 # the POI node.
@@ -41,9 +45,9 @@ LARGE_AREAS = 0.0001
 
 
 class Map:
+
     def __init__(
-        self, region: regions.Region, level: int = 18, load_directory: Text = None
-    ):
+            self, region: regions.Region, level: int = 18, load_directory: Text = None):
         self.map_name = region.name
         self.s2_graph = None
         self.level = level
@@ -57,22 +61,16 @@ class Map:
             self.num_poi = self.poi.shape[0]
             logging.info("Constructing graph.")
             self.nx_graph = ox.graph_from_polygon(
-                self.polygon_area, network_type="walk"
-            )
-            distance = nx.get_edge_attributes(self.nx_graph, "length")
-            nx.set_edge_attributes(self.nx_graph, distance, "true_length")
-
+                self.polygon_area, network_type='walk')
+            distance = nx.get_edge_attributes(self.nx_graph, 'length')
+            nx.set_edge_attributes(self.nx_graph, distance, 'true_length')
             logging.info("Add POI to graph.")
-
             self.add_poi_to_graph()
-            osmid = nx.get_node_attributes(self.nx_graph, "osmid")
-            print("++++++++++++")
-
+            osmid = nx.get_node_attributes(self.nx_graph, 'osmid')
             osmid_str = dict(zip(osmid, map(str, osmid.values())))
-            nx.set_node_attributes(self.nx_graph, osmid_str, "osmid")
+            nx.set_node_attributes(self.nx_graph, osmid_str, 'osmid')
             nx.relabel_nodes(self.nx_graph, osmid_str, copy=False)
-
-            self.poi["osmid"] = self.poi["osmid"].astype(str)
+            self.poi['osmid'] = self.poi['osmid'].astype(str)
 
         else:
             logging.info("Loading map from directory.")
@@ -87,82 +85,69 @@ class Map:
         self.process_param()
 
     def process_param(self):
-        """Helper function for processing the class data objects."""
+        '''Helper function for processing the class data objects.'''
 
         # Drop columns with list type.
-        self.edges.drop(
-            self.edges.columns.difference(
-                ["osmid", "true_length", "length", "geometry", "u", "v", "key", "name"]
-            ),
-            1,
-            inplace=True,
-        )
-        self.edges["osmid"] = self.edges["osmid"].apply(lambda x: str(x))
+        self.edges.drop(self.edges.columns.difference(
+            ['osmid', 'true_length', 'length', 'geometry', 'u', 'v', 'key', 'name']),
+            1, inplace=True)
+        self.edges['osmid'] = self.edges['osmid'].apply(lambda x: str(x))
 
     def get_poi(self) -> Tuple[GeoSeries, GeoSeries]:
-        """Extract point of interests (POI) for the defined region.
+        '''Extract point of interests (POI) for the defined region.
         Returns:
           (1) The POI that are not roads; and (2) the roads POI.
-        """
+        '''
 
         tags = osm.INTERESTING_TAGS
 
-        osm_poi = ox.geometries.geometries_from_polygon(self.polygon_area, tags=tags)
+        osm_poi = ox.geometries_from_polygon(self.polygon_area, tags=tags)
 
-        if ("highway" in osm_poi.columns) and ("railway" in osm_poi.columns):
+        if ('highway' in osm_poi.columns) and ('railway' in osm_poi.columns):
             condition_streets = osm_poi.apply(
                 lambda x: (pd.notnull(x.highway))
-                or (pd.notnull(x.railway))
-                or (isinstance(x.geometry, LineString)),
-                axis=1,
-            )
+                          or (pd.notnull(x.railway))
+                          or (isinstance(x.geometry, LineString)), axis=1)
         else:
             condition_streets = osm_poi.apply(
-                lambda x: isinstance(x.geometry, LineString), axis=1
-            )
+                lambda x: isinstance(x.geometry, LineString), axis=1)
         osm_poi_no_streets = osm_poi[~condition_streets]
         osm_poi_streets = osm_poi[condition_streets]
 
         # Remove large POI such as Manhattan.
         osm_without_large_areas = osm_poi_no_streets[
-            osm_poi_no_streets.geometry.apply(lambda x: x.area < LARGE_AREAS)
-        ]
+            osm_poi_no_streets.geometry.apply(lambda x: x.area < LARGE_AREAS)]
 
         # Get centroid for POI.
-        centroid_list = (
-            osm_without_large_areas["geometry"]
-            .apply(lambda x: x if isinstance(x, Point) else x.centroid)
-            .tolist()
-        )
+        centroid_list = osm_without_large_areas['geometry'].apply(
+            lambda x: x if isinstance(x, Point) else x.centroid).tolist()
 
         osm_without_large_areas = osm_without_large_areas.assign(centroid=centroid_list)
 
         return osm_without_large_areas, osm_poi_streets
 
     def add_single_poi_to_graph(
-        self, single_poi: pd.Series
-    ) -> Optional[Sequence[edge.Edge]]:
-        """Add single POI to nx_graph.
+            self, single_poi: pd.Series) -> Optional[Sequence[edge.Edge]]:
+        '''Add single POI to nx_graph.
         Arguments:
           single_poi: a single POI to be added to graph.
         Returns:
           The new osmid.
-        """
+        '''
 
         self.num_poi_add += 1
         if self.num_poi_add % SHOW_PROGRESS_EVERY == 0:
             percentage_gen = round(100 * self.num_poi_add / self.num_poi)
             logging.info(
-                f"Number of POI add to graph {self.num_poi_add}, "
-                + f"that is {percentage_gen}% of the required POI addition."
-            )
+                f"Number of POI add to graph {self.num_poi_add}, " +
+                f"that is {percentage_gen}% of the required POI addition.")
 
-        # # If the POI is already in the graph, do not add it.
-        # if single_poi['osmid'] in self.nx_graph:
-        #   return None
+        # If the POI is already in the graph, do not add it.
+        if single_poi['osmid'] in self.nx_graph:
+            return None
 
         # Project POI on to the closest edge in graph.
-        geometry = single_poi["geometry"]
+        geometry = single_poi['geometry']
         if isinstance(geometry, Point):
             points = [geometry]
         else:  # Polygon or LineString
@@ -184,8 +169,8 @@ class Map:
             points = [sample_1, sample_2, sample_3, sample_4]
             points = points[0:4]
 
-        poi_osmid = single_poi["osmid"]
-        centroid_point = single_poi["centroid"]
+        poi_osmid = single_poi['osmid']
+        centroid_point = single_poi['centroid']
 
         # POI_PREFIX indicates a POI added to the graph.
         poi_osmid = self.create_poi_id(poi_osmid)
@@ -194,14 +179,13 @@ class Map:
         if poi_osmid in self.nx_graph:
             return None
 
-        assert poi_osmid not in self.poi["osmid"].tolist(), poi_osmid
+        assert poi_osmid not in self.poi['osmid'].tolist(), poi_osmid
 
         list_edges_connected_ids = []
         edges_to_add = []
         for point in points:
             edges_to_add += self.add_single_point_edge(
-                point, list_edges_connected_ids, poi_osmid, centroid_point
-            )
+                point, list_edges_connected_ids, poi_osmid, centroid_point)
 
         # Add node POI to graph.
         self.nx_graph.add_node(
@@ -213,39 +197,85 @@ class Map:
             name="poi",
         )
 
-        self.poi.loc[self.poi["osmid"] == single_poi["osmid"], "osmid"] = poi_osmid
+        self.poi.loc[self.poi['osmid'] ==
+                     single_poi['osmid'], 'osmid'] = poi_osmid
 
         return edges_to_add
 
     def create_poi_id(self, poi_osmid: int) -> str:
-        """Create a new OSM id for an added POI to graph.
+        '''Create a new OSM id for an added POI to graph.
         Arguments:
           poi_osmid: the POI id to be added to graph.
         Returns:
           The new OSM id of the POI.
-        """
+        '''
         return POI_PREFIX + str(poi_osmid)
 
     def create_projected_poi_id(self, poi_osmid: str, list_projected: Sequence) -> str:
-        """Create a new OSM id for an added projected POI to graph.
+        '''Create a new OSM id for an added projected POI to graph.
         Arguments:
           poi_osmid: the POI id to be added to graph.
           list_projected: The list of projected points from the POI.
         Returns:
           The OSM id of the projected POI.
-        """
+        '''
         assert POI_PREFIX in poi_osmid
         len_list_projected = len(list_projected)
         return str(len_list_projected) + poi_osmid
 
-    def add_single_point_edge(
-        self,
-        point_exterior: Point,
-        list_edges_connected_ids: List,
-        poi_osmid: str,
-        centroid_point: Point,
-    ) -> Optional[Sequence[edge.Edge]]:
-        """Connect a POI to the closest edge: (1) claculate the projected point to
+    def get_nearest_edge(self, G, point, return_geom=False, return_dist=False):
+        """
+        Find the nearest edge to a point by minimum Euclidean distance.
+
+        For best results, both G and point should be projected.
+
+        Parameters
+        ----------
+        G : networkx.MultiDiGraph
+            input graph
+        point : tuple
+            the (lat, lng) or (y, x) point for which we will find the nearest edge
+            in the graph
+        return_geom : bool
+            Optionally return the geometry of the nearest edge
+        return_dist : bool
+            Optionally return the distance in graph's coordinates' units between
+            the point and the nearest edge
+
+        Returns
+        -------
+        tuple
+            Graph edge unique identifier as a tuple of (u, v, key).
+            Or a tuple of (u, v, key, geom) if return_geom is True.
+            Or a tuple of (u, v, key, dist) if return_dist is True.
+            Or a tuple of (u, v, key, geom, dist) if return_geom and return_dist are True.
+        """
+        # convert lat,lng (y,x) point to x,y for shapely distance operation
+        xy_point = Point(reversed(point))
+
+        # calculate euclidean distance from each edge's geometry to this point
+        gs_edges = ox.graph_to_gdfs(G, nodes=False)["geometry"]
+        uvk_geoms = zip(gs_edges.index, gs_edges.values)
+        distances = ((uvk, geom, xy_point.distance(geom)) for uvk, geom in uvk_geoms)
+
+        # the nearest edge minimizes the distance to the point
+        (u, v, key), geom, dist = min(distances, key=lambda x: x[2])
+
+        # return results requested by caller
+        if return_dist and return_geom:
+            return u, v, key, geom, dist
+        elif return_dist:
+            return u, v, key, dist
+        elif return_geom:
+            return u, v, key, geom
+        else:
+            return u, v, key
+
+    def add_single_point_edge(self, point_exterior: Point,
+                              list_edges_connected_ids: List,
+                              poi_osmid: str,
+                              centroid_point: Point) -> Optional[Sequence[edge.Edge]]:
+        '''Connect a POI to the closest edge: (1) claculate the projected point to
         the nearest edge; (2) add the projected node to the graph; (3) create an
         edge between the point of the POI and the projcted point (add to the list
         to be returned); (4) create two edges from the closest edge (u-v) and the
@@ -263,7 +293,7 @@ class Map:
         Returns:
           The edges between the POI and the closest edge found to be added to the
           graph.
-        """
+        '''
 
         try:
             (
@@ -271,14 +301,15 @@ class Map:
                 near_edge_v,
                 near_edge_key,
                 line,
-            ) = ox.distance.get_nearest_edge(
+            ) = self.get_nearest_edge(
                 self.nx_graph,
                 util.tuple_from_point(point_exterior),
                 return_geom=True,
             )
 
+
+
         except Exception as e:
-            print(e)
             return []
 
         edge_id = (near_edge_u, near_edge_v, near_edge_key)
@@ -288,10 +319,10 @@ class Map:
 
         # Get nearest points - u and v.
         u_node = self.nx_graph.nodes[near_edge_u]
-        u_point = Point(u_node["x"], u_node["y"])
+        u_point = Point(u_node['x'], u_node['y'])
 
         v_node = self.nx_graph.nodes[near_edge_v]
-        v_point = Point(v_node["x"], v_node["y"])
+        v_point = Point(v_node['x'], v_node['y'])
 
         # Add to connected edges.
         list_edges_connected_ids.append(edge_id)
@@ -314,8 +345,7 @@ class Map:
             dist_2 = util.get_line_length(line_2)
 
             projected_point_osmid = self.create_projected_poi_id(
-                poi_osmid, list_edges_connected_ids
-            )
+                poi_osmid, list_edges_connected_ids)
 
         else:  # Projected point is exactly on the end of the line (U or V).
             dist_u_p = util.get_distance_between_points(u_point, projected_point)
@@ -325,27 +355,26 @@ class Map:
             else:
                 projected_point_osmid = near_edge_v
 
-        assert (
-            n_lines == 1 or projected_point_osmid not in self.poi["osmid"].tolist()
-        ), projected_point_osmid
+        assert n_lines == 1 or projected_point_osmid not in self.poi['osmid'].tolist(), (
+            projected_point_osmid)
 
-        if isinstance(near_edge["highway"], list):
-            highway = ",".join(near_edge["highway"])
+        if isinstance(near_edge['highway'], list):
+            highway = ','.join(near_edge['highway'])
         else:
-            highway = near_edge["highway"]
+            highway = near_edge['highway']
 
         projected_line_centroid = LineString([projected_point, centroid_point])
         projected_line_centroid_dist = util.get_linestring_distance(
-            projected_line_centroid
-        )
+            projected_line_centroid)
 
         edge_to_add = edge.Edge.from_poi(
             u_for_edge=poi_osmid,
             v_for_edge=projected_point_osmid,
-            osmid=near_edge["osmid"],
+            osmid=near_edge['osmid'],
             geometry=projected_line_centroid,
             length=projected_line_centroid_dist + ADD_POI_DISTANCE,
-            true_length=projected_line_centroid_dist,
+            true_length=projected_line_centroid_dist
+
         )
         edges_list = [edge_to_add]
 
@@ -358,7 +387,7 @@ class Map:
             osmid=projected_point_osmid,
             x=projected_point.x,
             y=projected_point.y,
-            name="projected-poi",
+            name='projected-poi'
         )
 
         line_1_point_end = Point(line_1.coords[0])
@@ -377,30 +406,18 @@ class Map:
             line_v = line_1
 
         # Add edges between projected point and u and v, on the street segment.
-        street_name = near_edge["name"] if "name" in near_edge else ""
+        street_name = near_edge['name'] if 'name' in near_edge else ""
 
         if not projected_point_osmid == near_edge_u:
             edge_to_add = edge.Edge.from_projected(
-                near_edge_u,
-                projected_point_osmid,
-                dist_u,
-                near_edge["highway"],
-                near_edge["osmid"],
-                street_name,
-                line_u,
-            )
+                near_edge_u, projected_point_osmid, dist_u, near_edge['highway'],
+                near_edge['osmid'], street_name, line_u)
             self.add_two_ways_edges(edge_to_add)
 
         if not projected_point_osmid == near_edge_v:
             edge_to_add = edge.Edge.from_projected(
-                near_edge_v,
-                projected_point_osmid,
-                dist_v,
-                near_edge["highway"],
-                near_edge["osmid"],
-                street_name,
-                line_v,
-            )
+                near_edge_v, projected_point_osmid, dist_v, near_edge['highway'],
+                near_edge['osmid'], street_name, line_v)
             self.add_two_ways_edges(edge_to_add)
 
         # Remove u-v edge.
@@ -409,7 +426,7 @@ class Map:
         return edges_list
 
     def add_two_ways_edges(self, edge_add: edge.Edge):
-        """Add edges to graph."""
+        '''Add edges to graph.'''
 
         assert edge_add.u_for_edge is not None
         assert edge_add.v_for_edge is not None
@@ -423,7 +440,7 @@ class Map:
             name=edge_add.name,
             highway=edge_add.highway,
             oneway=edge_add.oneway,
-            geometry=edge_add.geometry,
+            geometry=edge_add.geometry
         )
 
         self.nx_graph.add_edge(
@@ -435,30 +452,26 @@ class Map:
             name=edge_add.name,
             highway=edge_add.highway,
             oneway=edge_add.oneway,
-            geometry=edge_add.geometry,
+            geometry=edge_add.geometry
         )
 
     def add_poi_to_graph(self):
-        """Add all POI to nx_graph(currently contains only the roads)."""
+        '''Add all POI to nx_graph(currently contains only the roads).'''
         self.num_poi = self.poi.shape[0]
-        logging.info(f"Number of POI to add to graph: {self.num_poi}")
-
         self.poi = self.poi.reset_index()
+        logging.info(f"Number of POI to add to graph: {self.num_poi}")
         edges_to_add_list = self.poi.apply(self.add_single_poi_to_graph, axis=1)
-
         edges_to_add_list = edges_to_add_list.dropna()
-
-        edges_to_add_list.apply(
-            lambda edges_list: [self.add_two_ways_edges(edge) for edge in edges_list]
-        )
+        edges_to_add_list.swifter.apply(
+            lambda edges_list: [self.add_two_ways_edges(edge) for edge in edges_list])
 
     def get_s2cellids_for_poi(self, geometry: Any) -> Optional[Sequence[int]]:
-        """get cellids for POI.
+        '''get cellids for POI.
         Arguments:
           geometry: The geometry to which a cellids will be retrived.
         Returns:
           The the cellids.
-        """
+        '''
         ""
         if isinstance(geometry, Point):
             return util.s2cellids_from_point(geometry, self.level)
@@ -466,18 +479,18 @@ class Map:
             return util.s2cellids_from_polygon(geometry, self.level)
 
     def calc_s2cells(self, level: int):
-        """Helper funcion for creating S2Graph."""
+        '''Helper funcion for creating S2Graph.'''
 
         # Get cellids for POI.
-        self.poi["s2cellids"] = self.poi["geometry"].apply(self.get_s2cellids_for_poi)
+        self.poi['s2cellids'] = self.poi['geometry'].apply(
+            self.get_s2cellids_for_poi)
 
         # Filter out entities that we didn't mange to get cellids covering.
-        self.poi = self.poi[self.poi["s2cellids"].notnull()]
+        self.poi = self.poi[self.poi['s2cellids'].notnull()]
 
-    def get_valid_path(
-        self, dir_name: Text, name_ending: Text, file_ending: Text
-    ) -> Optional[Text]:
-        """Creates the file path and checks validity.
+    def get_valid_path(self, dir_name: Text, name_ending: Text,
+                       file_ending: Text) -> Optional[Text]:
+        '''Creates the file path and checks validity.
         Arguments:
           dir_name: The directory of the path.
           name_ending: the end of the name  of the file
@@ -485,17 +498,14 @@ class Map:
           file_ending: the type of the file.
         Returns:
           The valid path.
-        """
+        '''
 
         base_filename = self.map_name.lower() + name_ending
 
         # Check if directory is valid.
-        assert os.path.exists(
-            dir_name
-        ), "Current directory is: {0}. The \
+        assert os.path.exists(dir_name), "Current directory is: {0}. The \
   directory {1} doesn't exist.".format(
-            os.getcwd(), dir_name
-        )
+            os.getcwd(), dir_name)
 
         # Create path.
         path = os.path.join(dir_name, base_filename + file_ending)
@@ -503,17 +513,16 @@ class Map:
         return path
 
     def write_map(self, dir_name: Text):
-        """Save POI to disk."""
+        '''Save POI to disk.'''
 
         # Write POI.
         pd_poi = copy.deepcopy(self.poi)
-        if "s2cellids" in pd_poi.columns:
-            pd_poi["cellids"] = pd_poi["s2cellids"].apply(
-                lambda x: util.cellids_from_s2cellids(x)
-            )
-        pd_poi.drop(["s2cellids"], 1, inplace=True)
+        if 's2cellids' in pd_poi.columns:
+            pd_poi['cellids'] = pd_poi['s2cellids'].apply(
+                lambda x: util.cellids_from_s2cellids(x))
+        pd_poi.drop(['s2cellids'], 1, inplace=True)
 
-        path = self.get_valid_path(dir_name, "_poi", ".pkl")
+        path = self.get_valid_path(dir_name, '_poi', '.pkl')
         if not os.path.exists(path):
             pd_poi.to_pickle(path)
         else:
@@ -522,7 +531,7 @@ class Map:
         # Write streets.
         pd_streets = copy.deepcopy(self.streets)
 
-        path = self.get_valid_path(dir_name, "_streets", ".pkl")
+        path = self.get_valid_path(dir_name, '_streets', '.pkl')
         if not os.path.exists(path):
             pd_streets.to_pickle(path)
         else:
@@ -537,44 +546,43 @@ class Map:
             logging.info(f"path {path} already exist.")
 
     def load_map(self, dir_name: Text):
-        """Load POI from disk."""
+        '''Load POI from disk.'''
 
         # Load POI.
-        path = self.get_valid_path(dir_name, "_poi", ".pkl")
-
-        print("got here")
+        path = self.get_valid_path(dir_name, '_poi', '.pkl')
         self.poi = load_poi(path)
 
         # Load streets.
-        path = self.get_valid_path(dir_name, "_streets", ".pkl")
+        path = self.get_valid_path(dir_name, '_streets', '.pkl')
         self.streets = load_poi(path)
 
         # Load graph.
-        path = self.get_valid_path(dir_name, "_graph", ".gpickle")
-        assert os.path.exists(path), f"path {path} doesn't exists"
+        path = self.get_valid_path(dir_name, '_graph', '.gpickle')
+        assert os.path.exists(
+            path), f"path {path} doesn't exists"
         self.nx_graph = nx.read_gpickle(path)
 
 
 def load_poi(path: Text):
-    """Load POI from disk."""
-    assert os.path.exists(path), f"Path {path} doesn't exist."
+    '''Load POI from disk.'''
+    assert os.path.exists(
+        path), f"Path {path} doesn't exist."
     poi_pandas = pd.read_pickle(path)
-    if "cellids" in poi_pandas:
-        poi_pandas["s2cellids"] = poi_pandas["cellids"].apply(
-            lambda x: util.s2cellids_from_cellids(x)
-        )
-        poi_pandas.drop(["cellids"], 1, inplace=True)
+    if 'cellids' in poi_pandas:
+        poi_pandas['s2cellids'] = poi_pandas['cellids'].apply(
+            lambda x: util.s2cellids_from_cellids(x))
+        poi_pandas.drop(['cellids'], 1, inplace=True)
 
     return poi_pandas
 
 
 def convert_string_to_list(string_list: Text) -> Sequence:
-    """Splitting a string into integers and creates a new list of the integers.
+    '''Splitting a string into integers and creates a new list of the integers.
     Arguments:
     string_list: A string in the form of a list. E.g "[1,2,3]".
     Returns:
     A list of integers.
-    """
+    '''
     string_list = string_list.replace("[", "").replace("]", "")
     string_list = string_list.split(",")
     map_object = map(int, string_list)
