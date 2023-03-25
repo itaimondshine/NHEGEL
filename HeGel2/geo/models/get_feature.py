@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pydantic import BaseModel, Field
 from geojson_pydantic import Point
 
@@ -16,3 +16,4 @@ class PoiData(BaseModel):
     neighbourhood: Optional[str]
     cardinal_direction_to_city_center: str
     distance_from_city_center: int
+    nearby_landmarks: Dict[str, str]
