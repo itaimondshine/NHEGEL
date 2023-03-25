@@ -40,14 +40,14 @@ class BaseRun:
         doc = PoiData(osmid=osmid,
                       name=name,
                       amenity=amenity,
-        location=Point(coordinates=[geometry.x, geometry.y]),
-        is_junction=is_junction, street_names=street_names,
-        nearby_to_non_primery_streets=no_primery_nearby_streets,
-        nearby_to_primery_streets=primery_nearby_streets,
-        relation_in_street=relation,
-        neighbourhood=neighbourhood,
-        cardinal_direction_to_city_center=bearing,
-        distance_from_city_center=distance)
+                      location=Point(coordinates=[geometry.x, geometry.y]),
+                      is_junction=is_junction, street_names=street_names,
+                      nearby_to_non_primery_streets=no_primery_nearby_streets,
+                      nearby_to_primery_streets=primery_nearby_streets,
+                      relation_in_street=relation,
+                      neighbourhood=neighbourhood,
+                      cardinal_direction_to_city_center=bearing,
+                      distance_from_city_center=distance)
 
         print(doc)
         # insert_document(doc)
