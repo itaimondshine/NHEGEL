@@ -72,7 +72,7 @@ class BaseRun:
         multiprocessing.set_start_method('fork', force=True)
 
         # 2. Extract geo features from POI-s
-        for i in range(0, 500, settings.BATCH_SIZE):
+        for i in range(0, settings.NUMBER_OF_DOCUMENTS, settings.BATCH_SIZE):
             batch = self.map_nodes.iloc[i:i + settings.BATCH_SIZE]
             return_dict = manager.dict()
             jobs = []

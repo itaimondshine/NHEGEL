@@ -2,7 +2,6 @@ from typing import Optional, Dict, List, Tuple, Set
 
 import pandas as pd
 import pyproj
-import shapely.geometry
 from shapely.geometry import Point
 import geopandas as gpd
 from ..map_processor.map_structure import Map
@@ -12,9 +11,6 @@ from pathlib import Path
 from shapely.ops import unary_union
 
 from ... import settings
-
-MINIMAL_DIST = 50
-NEIGHBORHOODS_LIBRARY = 'HeGel2/geo/extractors/city_polygons/'
 
 
 def create_neighborhood_json(city: str):
@@ -37,9 +33,11 @@ def create_neighborhood_json(city: str):
     return neighborhood_gdf
 
 
-def distance_to_point(poi, row):
-    geod = pyproj.Geod(ellps='WGS84')
-    _, _, distance = geod.inv(poi.x, poi.y, row.centroid.x, row.centroid.y)
+def distance_to_point(poi: Point, point: Point) -> int:
+    """
+    Calculates the distance between two points
+    """
+    _, _, distance = pyproj.Geod(ellps='WGS84').inv(poi.x, poi.y, point.x, point.y)
     return distance
 
 
@@ -50,27 +48,34 @@ class GeoFeatures:
         self.city = city
         self.map = map
         self.edges = map.edges.reset_index()
-        self.city_polygons = gpd.read_file(f'{Path(NEIGHBORHOODS_LIBRARY).joinpath(city)}_neighborhoods.geojson')
+        self.city_polygons = gpd.read_file(f'{Path(settings.NEIGHBORHOODS_LIBRARY).joinpath(city)}_neighborhoods.geojson')
         self.city_center = unary_union(map.nodes.geometry).centroid
         self.streets = ox.graph_to_gdfs(ox.graph_from_place('Tel Aviv, Israel', network_type='all'), nodes=False,
                                         edges=True)
         self.polygons_is_no_primery, self.polygons_is_primery = self.get_polygons()
 
     def get_streets(self, osm_id: str) -> List[str]:
+        """
+        Retrieves the streets of the osm id
+        """
         osm_id = osm_id if osm_id.startswith('#') else int(osm_id)
         osmid = self.edges[self.edges['u'] == osm_id].iloc[0]['osmid']
         optional_streets = self.edges[self.edges['osmid'] == osmid]['name'].to_list()
         streets = [edge for edge in optional_streets if edge != 'poi']
         return flatten_list(streets)
-        # streets = self.edges.loc[self.edges['v'] == osm_id, 'name'].tolist()
-        # valid_streets = flatten_list(streets)
-        # return valid_streets
 
     def is_poi_in_junction(self, osmid: str) -> bool:
+        """
+        Checks whether a point of interest (POI) with the given OSM ID (osmid)
+        is located within a road junction.
+        """
         valid_osmid = osmid if osmid.startswith('#') else int(osmid)
         return dict(self.map.nx_graph.degree())[valid_osmid] >= 4
 
     def _to_polygons(self, streets: pd.DataFrame):
+        """
+        Converts a Pandas DataFrame of street geometries to a GeoDataFrame of polygons.
+        """
         polygons = polygonizer(streets['geometry'].to_list())
         sjoin_polygons = gpd.sjoin(polygons, streets, predicate='covers')
         polygons['names'] = sjoin_polygons.groupby('index').agg(set)['name']
@@ -78,7 +83,8 @@ class GeoFeatures:
 
     def get_polygons(self):
         """
-        Creates Polygons Initially
+        Retrieves the polygons corresponding to non-primary and primary streets
+        from the Map's streets DataFrame.
         """
         self.streets.dropna(subset='name', inplace=True)
         self.streets.reset_index(inplace=True)
@@ -105,12 +111,15 @@ class GeoFeatures:
         except:
             return None
 
-    def get_neighborhood(self, geometry: shapely.geometry.Point) -> Optional[str]:
-        neighborhoods_series = self.city_polygons[self.city_polygons.contains(geometry)]
+    def get_neighborhood(self, poi: Point) -> Optional[str]:
+        """
+        Returns the neighborhood of the poi
+        """
+        neighborhoods_series = self.city_polygons[self.city_polygons.contains(poi)]
         if neighborhoods_series['name'].any():
             return neighborhoods_series['name'].iloc[0]
 
-    def get_relation_in_street(self, osmid: int, point: Point) -> Optional[str]:
+    def get_relation_in_street(self, osmid: str, point: Point) -> Optional[str]:
         """
         Returns None if no street recognized
         """
@@ -138,9 +147,12 @@ class GeoFeatures:
         bearing_relation = get_bearing(bearing)
         return distance, bearing_relation
 
-    def get_top_k_nearest_landmarks(self, point, k=5) -> List[Tuple[str, str, str]]:
+    def get_top_k_nearest_landmarks(self, point: Point, k: int = 5) -> List[Tuple[str, str, str]]:
+        """
+        Returns k nearest landmarks which are in radios of LANDMARKS_DISTANCE from the selected poi
+        """
         gdf = self.map.poi.to_crs('EPSG:4326')
-        gdf['distance_to_point'] = gdf.apply(lambda row: distance_to_point(point, row), axis=1)
+        gdf['distance_to_point'] = gdf.apply(lambda row: distance_to_point(point, row['centroid']), axis=1)
         in_distance_from_poi_gdf = gdf.loc[gdf['distance_to_point'] < settings.LANDMARKS_DISTANCE]
         in_distance_from_poi_gdf = in_distance_from_poi_gdf.dropna(subset=['amenity', 'name']).sample(k)
         bearing_angle_list = list(
@@ -149,11 +161,4 @@ class GeoFeatures:
         bearing_list = list(map(lambda bearing: get_bearing(bearing), bearing_angle_list))
         return list(zip(in_distance_from_poi_gdf.name, in_distance_from_poi_gdf.amenity, bearing_list))
 
-    # def relative_location_to_city_center(city_gdf: GeoDataFrame, end_point: pandas.Series) -> str:
-    #     city_center = city_gdf.centroid.iloc[0]
-    #     bearing = ox.bearing.calculate_bearing(city_center.y, city_center.x,
-    #                                            end_point.centroid[0], end_point.centroid[1])
-    #     return _get_bearing(bearing)
 
-# poly, polygons = get_nearby_streets(32.073599, 34.781754, 500, False)
-# poly
