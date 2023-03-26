@@ -36,7 +36,9 @@ class BaseRun:
         relation = self.geo_features.get_relation_in_street(osmid, geometry)
         distance, bearing = self.geo_features.get_distance_from_city_center(geometry)
         neighbourhood = self.geo_features.get_neighborhood(geometry)
+        nearby_landmarks = self.geo_features.get_top_k_nearest_landmarks(point=geometry)
 
+        print(nearby_landmarks)
         doc = PoiData(osmid=osmid,
                       name=name,
                       amenity=amenity,
@@ -47,10 +49,11 @@ class BaseRun:
                       relation_in_street=relation,
                       neighbourhood=neighbourhood,
                       cardinal_direction_to_city_center=bearing,
-                      distance_from_city_center=distance)
+                      distance_from_city_center=distance,
+                      nearby_landmarks=nearby_landmarks)
 
         print(doc)
-        # insert_document(doc)
+        insert_document(doc)
 
     def process_batch(self, batch):
         with multiprocessing.Pool(multiprocessing.cpu_count() - 1) as pool:

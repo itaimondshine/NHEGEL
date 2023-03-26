@@ -1,6 +1,7 @@
 from typing import Optional, Dict, List, Tuple, Set
 
 import pandas as pd
+import pyproj
 import shapely.geometry
 from shapely.geometry import Point
 import geopandas as gpd
@@ -9,6 +10,8 @@ import osmnx as ox
 from .utils import flatten_list, polygonizer, azimuth_to_street, get_bearing
 from pathlib import Path
 from shapely.ops import unary_union
+
+from ... import settings
 
 MINIMAL_DIST = 50
 NEIGHBORHOODS_LIBRARY = 'HeGel2/geo/extractors/city_polygons/'
@@ -32,6 +35,12 @@ def create_neighborhood_json(city: str):
     concatenated_gdf_has_no_polygons['geometry'] = concatenated_gdf_has_no_polygons_to_polygons
     neighborhood_gdf = pd.concat([concatenated_polygons, concatenated_gdf_has_no_polygons], axis=0)
     return neighborhood_gdf
+
+
+def distance_to_point(poi, row):
+    geod = pyproj.Geod(ellps='WGS84')
+    _, _, distance = geod.inv(poi.x, poi.y, row.centroid.x, row.centroid.y)
+    return distance
 
 
 class GeoFeatures:
@@ -128,6 +137,17 @@ class GeoFeatures:
         bearing = ox.bearing.calculate_bearing(self.city_center.x, self.city_center.y, point.x, point.y)
         bearing_relation = get_bearing(bearing)
         return distance, bearing_relation
+
+    def get_top_k_nearest_landmarks(self, point, k=5) -> List[Tuple[str, str, str]]:
+        gdf = self.map.poi.to_crs('EPSG:4326')
+        gdf['distance_to_point'] = gdf.apply(lambda row: distance_to_point(point, row), axis=1)
+        in_distance_from_poi_gdf = gdf.loc[gdf['distance_to_point'] < settings.LANDMARKS_DISTANCE]
+        in_distance_from_poi_gdf = in_distance_from_poi_gdf.dropna(subset=['amenity', 'name']).sample(k)
+        bearing_angle_list = list(
+            map(lambda poi: ox.bearing.calculate_bearing(point.x, point.y, poi.x, poi.y),
+                in_distance_from_poi_gdf.centroid))
+        bearing_list = list(map(lambda bearing: get_bearing(bearing), bearing_angle_list))
+        return list(zip(in_distance_from_poi_gdf.name, in_distance_from_poi_gdf.amenity, bearing_list))
 
     # def relative_location_to_city_center(city_gdf: GeoDataFrame, end_point: pandas.Series) -> str:
     #     city_center = city_gdf.centroid.iloc[0]
