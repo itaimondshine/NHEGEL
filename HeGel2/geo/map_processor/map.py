@@ -15,8 +15,7 @@ from . import osm, regions, util
 from .connect_poi import connect_poi
 
 LARGE_AREAS = 0.0001
-NEIGHBORHOODS_LIBRARY = 'HeGel2/geo/extractors/city_polygons/'
-
+NEIGHBORHOODS_LIBRARY = '/Users/itaimondshine/PycharmProjects/NLP/HeGel2/HeGel2/HeGel2/geo/extractors/city_polygons'
 
 class Map:
     def __init__(
