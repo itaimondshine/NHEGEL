@@ -25,7 +25,7 @@ import multiprocessing
 from absl import app, flags
 
 from HeGel2.geo.extractors import extractor
-from HeGel2.geo.map_processor import map_structure, regions
+from HeGel2.geo.map_processor_old import map_structure, regions
 
 FLAGS = flags.FLAGS
 flags.DEFINE_enum(

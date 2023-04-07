@@ -3,8 +3,8 @@ from typing import Optional
 from HeGel2 import settings
 from geojson_pydantic import Point
 from HeGel2.geo.db.mongo import insert_document
-from HeGel2.geo.map_processor import regions
-from HeGel2.geo.map_processor.map_structure import Map
+from HeGel2.geo.map_processor_old import regions
+from HeGel2.geo.map_processor.map import Map
 from HeGel2.geo.extractors.extractor import GeoFeatures
 from HeGel2.geo.models.get_feature import PoiData
 
@@ -25,7 +25,7 @@ class BaseRun:
         name = row['name'] if row['name'] else row['wikipedia']
         amenity = row.get('amenity') or row.get('tourism') or row.get('building') or row.get('description')
         geometry = row['centroid']
-        osmid = row['osmid']
+        osmid = str(row['osmid'])
         street_names = self.geo_features.get_streets(osmid)
         is_junction = self.geo_features.is_poi_in_junction(osmid)
         lat, lon = geometry.x, geometry.y
@@ -50,7 +50,10 @@ class BaseRun:
                       nearby_landmarks=nearby_landmarks)
 
         print(doc)
-        insert_document(doc)
+        # # print(is_junction)
+        # print(no_primery_nearby_streets)
+        # print(primery_nearby_streets)
+        # # insert_document(doc)
 
     def process_batch(self, batch):
         with multiprocessing.Pool(multiprocessing.cpu_count() - 1) as pool:
@@ -85,7 +88,11 @@ class BaseRun:
 
 def main():
     # 1. Create Map Object
-    map: Map = Map(regions.get_region(settings.REGION), settings.S2_LEVEL, settings.MAP_DIR)
+    map = Map(regions.get_region('TelAvivSmall'), 14)
+    # map.is_graph_available()
+    # out_map.write_map('/Users/itaimondshine/PycharmProjects/NLP/toolbox')
+
+    # map: Map = Map(regions.get_region(settings.REGION), settings.S2_LEVEL, settings.MAP_DIR)
     print(map)
     # 2. Create a BaseRun Object and run
 

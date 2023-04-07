@@ -4,7 +4,7 @@ import pandas as pd
 import pyproj
 from shapely.geometry import Point
 import geopandas as gpd
-from ..map_processor.map_structure import Map
+from ..map_processor_old.map_structure import Map
 import osmnx as ox
 from .utils import flatten_list, polygonizer, azimuth_to_street, get_bearing
 from pathlib import Path
@@ -48,29 +48,34 @@ class GeoFeatures:
         self.city = city
         self.map = map
         self.edges = map.edges.reset_index()
-        self.city_polygons = gpd.read_file(f'{Path(settings.NEIGHBORHOODS_LIBRARY).joinpath(city)}_neighborhoods.geojson')
+        self.city_polygons = map.city_polygons
         self.city_center = unary_union(map.nodes.geometry).centroid
-        self.streets = ox.graph_to_gdfs(ox.graph_from_place('Tel Aviv, Israel', network_type='all'), nodes=False,
-                                        edges=True)
+        self.streets = map.streets
         self.polygons_is_no_primery, self.polygons_is_primery = self.get_polygons()
 
     def get_streets(self, osm_id: str) -> List[str]:
         """
         Retrieves the streets of the osm id
         """
-        osm_id = osm_id if osm_id.startswith('#') else int(osm_id)
-        osmid = self.edges[self.edges['u'] == osm_id].iloc[0]['osmid']
-        optional_streets = self.edges[self.edges['osmid'] == osmid]['name'].to_list()
-        streets = [edge for edge in optional_streets if edge != 'poi']
-        return flatten_list(streets)
+        osm_id = int(osm_id)
+        projection_osmid = self.edges[self.edges['u'] == osm_id]['v']
+        try:
+            optional_streets = [self.edges[self.edges['u'] == proj_osmid]['name'].iloc[0] for proj_osmid in
+                                projection_osmid]
+            print(f"optional_streets: {optional_streets}")
+            optional_streets = list(set(optional_streets))
+            streets = [street for street in optional_streets if street is not None]
+            return streets
+        except:
+            return None
 
     def is_poi_in_junction(self, osmid: str) -> bool:
         """
         Checks whether a point of interest (POI) with the given OSM ID (osmid)
         is located within a road junction.
         """
-        valid_osmid = osmid if osmid.startswith('#') else int(osmid)
-        return dict(self.map.nx_graph.degree())[valid_osmid] >= 4
+        valid_osmid = int(osmid)
+        return dict(self.map.nx_graph.degree())[valid_osmid] >= 2
 
     def _to_polygons(self, streets: pd.DataFrame):
         """
@@ -90,6 +95,7 @@ class GeoFeatures:
         self.streets.reset_index(inplace=True)
         self.streets['type'] = self.streets['name'].apply(lambda x: type(x))
         streets_no_primery = self.streets[self.streets['type'] != list]
+        streets_no_primery = streets_no_primery[streets_no_primery['geometry'].geom_type == 'LineString']
         streets_primery = streets_no_primery[
             streets_no_primery['highway'].isin(['trunk', 'primary', 'motorway', 'tertiary', 'secondary',
                                                 'footway', 'service'])]
@@ -160,5 +166,3 @@ class GeoFeatures:
                 in_distance_from_poi_gdf.centroid))
         bearing_list = list(map(lambda bearing: get_bearing(bearing), bearing_angle_list))
         return list(zip(in_distance_from_poi_gdf.name, in_distance_from_poi_gdf.amenity, bearing_list))
-
-
