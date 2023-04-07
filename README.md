@@ -1,4 +1,11 @@
 # HEGEL 
+
+## Install requirements
+
+```
+pip3.8 install -r requirements.txt
+```
+
 ## Run Docker compose build 
 
 ```
