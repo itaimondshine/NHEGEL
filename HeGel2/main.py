@@ -9,7 +9,7 @@ from HeGel2.geo.extractors.extractor import GeoFeatures
 from HeGel2.geo.models.get_feature import PoiData
 
 
-def create_osm_graph(region: str, map_data_dir: Optional[str], s2_level: int = 14) -> Map:
+def create_osm_graph(region: str, map_data_dir: Optional[str], s2_level: int = settings.S2_LEVEL) -> Map:
     return Map(regions.get_region(region), s2_level, map_data_dir) if map_data_dir is not None else (
         Map(regions.get_region(region), s2_level))
 
@@ -23,11 +23,9 @@ class BaseRun:
 
     def run_extractors(self, row, sema, return_dict):
         name = row['name'] if row['name'] else row['wikipedia']
-        amenity = row['amenity'] if row['amenity'] else row['tourism'] if row['tourism'] else row['building'] if row[
-            'building'] else row['description']
+        amenity = row.get('amenity') or row.get('tourism') or row.get('building') or row.get('description')
         geometry = row['centroid']
         osmid = row['osmid']
-        print(f"{name}: {amenity}")
         street_names = self.geo_features.get_streets(osmid)
         is_junction = self.geo_features.is_poi_in_junction(osmid)
         lat, lon = geometry.x, geometry.y
@@ -38,7 +36,6 @@ class BaseRun:
         neighbourhood = self.geo_features.get_neighborhood(geometry)
         nearby_landmarks = self.geo_features.get_top_k_nearest_landmarks(point=geometry)
 
-        print(nearby_landmarks)
         doc = PoiData(osmid=osmid,
                       name=name,
                       amenity=amenity,
