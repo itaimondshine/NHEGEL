@@ -2,7 +2,6 @@ import numpy as np
 
 import pandas as pd
 import geopandas as gpd
-import osmnx as ox
 
 import rtree
 import itertools
@@ -277,14 +276,3 @@ def connect_poi(pois, nodes, edges, key_col=None, path=None, threshold=200, knn=
     return nodes, edges
 
 
-if __name__ == '__main__':
-    TEL_AVIV_GRAPH = ox.graph.graph_from_place('Tel Aviv, Israel', network_type='all')
-    tags = {'amenity': True}
-    pois = ox.geometries.geometries_from_place('Tel Aviv, Israel', tags, which_result=None, buffer_dist=None)
-    pois = pois.reset_index()
-    pois = pois[pois.element_type == 'node']
-    ox.save_graph_shapefile(TEL_AVIV_GRAPH, filepath='data/sample/', encoding='utf-8')
-    # load as GeoDataFrame
-    nodes = gpd.read_file('data/sample/nodes.shp')
-    edges = gpd.read_file('data/sample/edges.shp')
-    new_nodes, new_edges = connect_poi(pois, nodes, edges, key_col='osmid', path=None)

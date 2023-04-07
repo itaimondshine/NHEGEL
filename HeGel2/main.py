@@ -3,7 +3,7 @@ from typing import Optional
 from HeGel2 import settings
 from geojson_pydantic import Point
 from HeGel2.geo.db.mongo import insert_document
-from HeGel2.geo.map_processor_old import regions
+from HeGel2.geo.map_processor import regions
 from HeGel2.geo.map_processor.map import Map
 from HeGel2.geo.extractors.extractor import GeoFeatures
 from HeGel2.geo.models.get_feature import PoiData
@@ -51,9 +51,6 @@ class BaseRun:
                       nearby_landmarks=nearby_landmarks)
 
         print(doc)
-        # # print(is_junction)
-        # print(no_primery_nearby_streets)
-        # print(primery_nearby_streets)
         insert_document(doc)
 
     def process_batch(self, batch):

@@ -1,7 +1,6 @@
 import copy
 import logging
 import os
-import pickle
 from pathlib import Path
 from typing import Tuple, Text, Optional
 
@@ -29,7 +28,6 @@ class Map:
         self.region = region
         self.level = level
         self.polygon_area = region.polygon
-        self.num_poi_add = 0
         self.load_directory = load_directory
         self.nx_graph = None
         self.nodes = None
@@ -38,7 +36,7 @@ class Map:
         if load_directory and len(os.listdir(self.load_directory)) != 0:
             print("Loading map from directory.")
             self.load_map(self.load_directory)
-        elif load_directory:
+        else:
             print("Preparing and Extracting POI.")
             self.poi, self.streets = self.get_poi()
             self.build_graph()
@@ -47,10 +45,10 @@ class Map:
             print("Graph Saved successfully.")
 
     def get_poi(self) -> Tuple[GeoSeries, GeoSeries]:
-        '''Extract point of interests (POI) for the defined region.
+        """Extract point of interests (POI) for the defined region.
         Returns:
           (1) The POI that are not roads; and (2) the roads POI.
-        '''
+        """
 
         tags = osm.INTERESTING_TAGS
         osm_poi = ox.geometries_from_polygon(self.polygon_area, tags=tags)
@@ -80,17 +78,8 @@ class Map:
 
         return osm_without_large_areas.reset_index(), streets
 
-    def is_graph_available(self):
-        if self.load_directory is None:
-            print("Preparing map.")
-            print("Extracting POI.")
-            self.build_graph()
-            logging.info("Graph built successfully.")
-        else:
-            print("Loading map from directory.")
-            self.load_map(self.load_directory)
-
-    def save_to_graph(self, nodes_gdf, edges_gdf):
+    @staticmethod
+    def _save_to_graph(nodes_gdf, edges_gdf):
         graph = nx.MultiGraph()
 
         nodes_gdf = nodes_gdf.drop_duplicates(subset=['osmid'])
@@ -117,20 +106,12 @@ class Map:
         edges = gpd.read_file('data/sample/edges.shp')
         # Todo Add support for polygons
         self.nodes, self.edges = connect_poi(processed_poi, nodes, edges, key_col='osmid', path=None, knn=6)
-        self.nx_graph = self.save_to_graph(self.nodes, self.edges)
+        self.nx_graph = self._save_to_graph(self.nodes, self.edges)
         self.nx_graph.graph['crs'] = nodes.crs
-
-        # self.nx_graph = nx.from_pandas_edgelist(self.edges, 'u', 'v', edge_attr='geometry')
-        # for index, row in self.nodes.iterrows():
-        #     try:
-        #         self.nx_graph.nodes[row['osmid']]['geometry'] = (row['geometry'].x, row['geometry'].y)
-        #         self.nx_graph.graph['crs'] = self.edges.crs
-        #     except:
-        #         print(f"failed: {row['osmid']}")
 
     def get_valid_path(self, dir_name: Text, name_ending: Text,
                        file_ending: Text) -> Optional[Text]:
-        '''Creates the file path and checks validity.
+        """Creates the file path and checks validity.
         Arguments:
           dir_name: The directory of the path.
           name_ending: the end of the name  of the file
@@ -138,7 +119,7 @@ class Map:
           file_ending: the type of the file.
         Returns:
           The valid path.
-        '''
+        """
 
         base_filename = self.map_name.lower() + name_ending
 
@@ -153,7 +134,7 @@ class Map:
         return path
 
     def write_map(self, dir_name: Text):
-        '''Save POI to disk.'''
+        """Save POI to disk."""
         # Write POI.
         pd_poi = copy.deepcopy(self.poi)
         if 's2cellids' in pd_poi.columns:
@@ -184,8 +165,9 @@ class Map:
         else:
             logging.info(f"path {path} already exist.")
 
-    def load_poi(self, path: Text):
-        '''Load POI from disk.'''
+    @staticmethod
+    def load_poi(path: Text):
+        """Load POI from disk."""
         assert os.path.exists(
             path), f"Path {path} doesn't exist."
         poi_pandas = pd.read_pickle(path)
@@ -197,7 +179,7 @@ class Map:
         return poi_pandas
 
     def load_map(self, dir_name: Text):
-        '''Load POI from disk.'''
+        """Load POI from disk."""
 
         # Load POI.
         path = self.get_valid_path(dir_name, '_poi', '.pkl')
