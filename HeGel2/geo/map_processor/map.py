@@ -1,17 +1,19 @@
+import copy
 import logging
+import os
+import pickle
 from pathlib import Path
 from typing import Tuple, Text, Optional
-import copy
-import osmnx as ox
+
 import geopandas as gpd
 import networkx as nx
-from shapely.geometry import LineString, Point
-from geopandas import GeoSeries
-
-from .toolbox import connect_poi
-from . import osm, regions, util
+import osmnx as ox
 import pandas as pd
-import os
+from geopandas import GeoSeries
+from shapely.geometry import LineString, Point
+
+from . import osm, regions, util
+from .connect_poi import connect_poi
 
 LARGE_AREAS = 0.0001
 NEIGHBORHOODS_LIBRARY = 'HeGel2/geo/extractors/city_polygons/'
@@ -24,7 +26,6 @@ class Map:
         self.city_polygons = gpd.read_file(f'{Path(NEIGHBORHOODS_LIBRARY).joinpath("Tel_Aviv")}_neighborhoods.geojson')
         self.polygon_area = region.polygon
         self.map_name = region.name
-        self.s2_graph = None
         self.region = region
         self.level = level
         self.polygon_area = region.polygon
@@ -34,17 +35,16 @@ class Map:
         self.nodes = None
         self.edges = None
 
-        if load_directory and len(os.listdir(self.load_directory)) == 0:
+        if load_directory and len(os.listdir(self.load_directory)) != 0:
             print("Loading map from directory.")
             self.load_map(self.load_directory)
-        else:
-            print("Preparing map.")
-            print("Extracting POI.")
+        elif load_directory:
+            print("Preparing and Extracting POI.")
             self.poi, self.streets = self.get_poi()
             self.build_graph()
-            logging.info("Graph Built successfully.")
-            # self.write_map(load_directory)
-            logging.info("Graph Saved successfully.")
+            print("Graph Built successfully.")
+            self.write_map(load_directory)
+            print("Graph Saved successfully.")
 
     def get_poi(self) -> Tuple[GeoSeries, GeoSeries]:
         '''Extract point of interests (POI) for the defined region.
@@ -90,6 +90,24 @@ class Map:
             print("Loading map from directory.")
             self.load_map(self.load_directory)
 
+    def save_to_graph(self, nodes_gdf, edges_gdf):
+        graph = nx.MultiGraph()
+
+        nodes_gdf = nodes_gdf.drop_duplicates(subset=['osmid'])
+        node_data = nodes_gdf.set_index('osmid').to_dict('index')
+        graph.add_nodes_from(node_data.keys())
+        for node_id, node_attrs in node_data.items():
+            graph.nodes[node_id].update(node_attrs)
+
+        for index, row in edges_gdf.iterrows():
+            from_node = row['u']
+            to_node = row['v']
+            edge_key = row['key']
+            edge_attrs = {key: row[key] for key in row.index if key not in ['from', 'to', 'key']}
+            graph.add_edge(from_node, to_node, key=edge_key, **edge_attrs)
+
+        return graph
+
     def build_graph(self):
         processed_poi = self.poi.reset_index()
         processed_poi = processed_poi[processed_poi.element_type == 'node']
@@ -98,13 +116,17 @@ class Map:
         nodes = gpd.read_file('data/sample/nodes.shp')
         edges = gpd.read_file('data/sample/edges.shp')
         # Todo Add support for polygons
-        self.nodes, self.edges = connect_poi(processed_poi, nodes, edges, key_col='osmid', path=None)
-        self.nx_graph = nx.from_pandas_edgelist(self.edges, 'u', 'v', edge_attr='geometry')
-        for index, row in self.nodes.iterrows():
-            try:
-                self.nx_graph.nodes[row['osmid']]['geometry'] = (row['geometry'].x, row['geometry'].y)
-            except:
-                print(f"failed: {row['osmid']}")
+        self.nodes, self.edges = connect_poi(processed_poi, nodes, edges, key_col='osmid', path=None, knn=6)
+        self.nx_graph = self.save_to_graph(self.nodes, self.edges)
+        self.nx_graph.graph['crs'] = nodes.crs
+
+        # self.nx_graph = nx.from_pandas_edgelist(self.edges, 'u', 'v', edge_attr='geometry')
+        # for index, row in self.nodes.iterrows():
+        #     try:
+        #         self.nx_graph.nodes[row['osmid']]['geometry'] = (row['geometry'].x, row['geometry'].y)
+        #         self.nx_graph.graph['crs'] = self.edges.crs
+        #     except:
+        #         print(f"failed: {row['osmid']}")
 
     def get_valid_path(self, dir_name: Text, name_ending: Text,
                        file_ending: Text) -> Optional[Text]:
@@ -190,24 +212,4 @@ class Map:
         assert os.path.exists(
             path), f"path {path} doesn't exists"
         self.nx_graph = nx.read_gpickle(path)
-        self.nodes = gpd.read_file('data/sample/nodes.shp')
-        self.edges = gpd.read_file('data/sample/edges.shp')
-
-        # TODO fix it
-        # self.nodes, self.edges = ox.graph_to_gdfs(self.nx_graph)
-
-        # self.process_param()
-
-    def process_param(self):
-        '''Helper function for processing the class data objects.'''
-
-        # Drop columns with list type.
-        self.edges.drop(self.edges.columns.difference(
-            ['osmid', 'true_length', 'length', 'geometry', 'u', 'v', 'key', 'name']),
-            1, inplace=True)
-        self.edges['osmid'] = self.edges['osmid'].apply(lambda x: str(x))
-
-# if __name__ == '__main__':
-#     out_map = Map(regions.get_region('TelAvivSmall'), 14)
-#     out_map.is_graph_available()
-#     out_map.write_map('/Users/itaimondshine/PycharmProjects/NLP/toolbox')
+        self.nodes, self.edges = ox.graph_to_gdfs(self.nx_graph)

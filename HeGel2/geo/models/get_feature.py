@@ -8,7 +8,7 @@ class PoiData(BaseModel):
     name: Optional[str]
     amenity: Optional[str]
     point: Point = Field(..., alias="location")
-    street_names: List[str]
+    street_names: Optional[List[str]]
     is_junction: bool = None
     nearby_to_non_primery_streets: Optional[List[str]]
     nearby_to_primery_streets: Optional[List[str]]

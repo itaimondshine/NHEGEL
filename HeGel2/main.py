@@ -27,6 +27,7 @@ class BaseRun:
         geometry = row['centroid']
         osmid = str(row['osmid'])
         street_names = self.geo_features.get_streets(osmid)
+        print(street_names)
         is_junction = self.geo_features.is_poi_in_junction(osmid)
         lat, lon = geometry.x, geometry.y
         no_primery_nearby_streets = self.geo_features.get_nearby_streets(lat, lon, is_primery=False)
@@ -53,7 +54,7 @@ class BaseRun:
         # # print(is_junction)
         # print(no_primery_nearby_streets)
         # print(primery_nearby_streets)
-        # # insert_document(doc)
+        insert_document(doc)
 
     def process_batch(self, batch):
         with multiprocessing.Pool(multiprocessing.cpu_count() - 1) as pool:
@@ -88,14 +89,14 @@ class BaseRun:
 
 def main():
     # 1. Create Map Object
-    map = Map(regions.get_region('TelAvivSmall'), 14)
+    map = Map(regions.get_region('TelAvivSmall'), 14, settings.MAP_DIR)
     # map.is_graph_available()
     # out_map.write_map('/Users/itaimondshine/PycharmProjects/NLP/toolbox')
 
-    # map: Map = Map(regions.get_region(settings.REGION), settings.S2_LEVEL, settings.MAP_DIR)
+    # # map: Map = Map(regions.get_region(settings.REGION), settings.S2_LEVEL, settings.MAP_DIR)
     print(map)
-    # 2. Create a BaseRun Object and run
-
+    # # 2. Create a BaseRun Object and run
+    #
     b = BaseRun(map)
     b.run()
 

@@ -1,13 +1,13 @@
+import builtins
 from typing import Optional, Dict, List, Tuple, Set
 
 import pandas as pd
 import pyproj
 from shapely.geometry import Point
 import geopandas as gpd
-from ..map_processor_old.map_structure import Map
+from ..map_processor.map import Map
 import osmnx as ox
-from .utils import flatten_list, polygonizer, azimuth_to_street, get_bearing
-from pathlib import Path
+from .utils import polygonizer, get_bearing
 from shapely.ops import unary_union
 
 from ... import settings
@@ -60,11 +60,12 @@ class GeoFeatures:
         osm_id = int(osm_id)
         projection_osmid = self.edges[self.edges['u'] == osm_id]['v']
         try:
-            optional_streets = [self.edges[self.edges['u'] == proj_osmid]['name'].iloc[0] for proj_osmid in
-                                projection_osmid]
-            print(f"optional_streets: {optional_streets}")
-            optional_streets = list(set(optional_streets))
-            streets = [street for street in optional_streets if street is not None]
+            optional_streets = [self.edges[self.edges['u'] == proj_osmid]['name'] for proj_osmid in
+                                list(projection_osmid)]
+            streets = [s.values[0] for s in optional_streets if len(s.values) != 0]
+            print(f"optional_streets: {streets}")
+            streets = list(set(streets))
+            streets = [street for street in streets if street is not None]
             return streets
         except:
             return None
@@ -130,7 +131,7 @@ class GeoFeatures:
         Returns None if no street recognized
         """
         street_name = self.get_streets(osmid)
-        if len(street_name) > 0:
+        if street_name:
             street_name = self.get_streets(osmid)[0]
             total_bounds: List[int] = self.map.streets[self.map.streets.name == street_name].total_bounds
             x_first, y_first = total_bounds[:2]
