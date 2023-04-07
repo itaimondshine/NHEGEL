@@ -66,6 +66,7 @@ class BaseRun:
     def run(self):
         manager = multiprocessing.Manager()
         sema = multiprocessing.Semaphore(settings.N_CPU)
+
         # if macos or windows - need to use 'fork'
         multiprocessing.set_start_method('fork', force=True)
 

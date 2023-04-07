@@ -11,11 +11,11 @@ import pandas as pd
 from geopandas import GeoSeries
 from shapely.geometry import LineString, Point
 
-from . import osm, regions, util
-from .connect_poi import connect_poi
+from HeGel2.geo.map_processor import osm, regions, util, connect_poi
 
 LARGE_AREAS = 0.0001
-NEIGHBORHOODS_LIBRARY = '/Users/itaimondshine/PycharmProjects/NLP/HeGel2/HeGel2/HeGel2/geo/extractors/city_polygons'
+NEIGHBORHOODS_LIBRARY = '/Users/itaimondshine/PycharmProjects/NLP/HeGel2/HeGel2/HeGel2/geo/extractors/city_polygons/'
+
 
 class Map:
     def __init__(
@@ -104,7 +104,7 @@ class Map:
         nodes = gpd.read_file('data/sample/nodes.shp')
         edges = gpd.read_file('data/sample/edges.shp')
         # Todo Add support for polygons
-        self.nodes, self.edges = connect_poi(processed_poi, nodes, edges, key_col='osmid', path=None, knn=6)
+        self.nodes, self.edges = connect_poi.connect_poi(processed_poi, nodes, edges, key_col='osmid', path=None, knn=6)
         self.nx_graph = self._save_to_graph(self.nodes, self.edges)
         self.nx_graph.graph['crs'] = nodes.crs
 
