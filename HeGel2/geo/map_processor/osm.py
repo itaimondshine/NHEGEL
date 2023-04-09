@@ -13,7 +13,6 @@
 # limitations under the License.
 """Defines OSM entities adaptations."""
 
-from networkx.algorithms import hierarchy
 
 CORRECTIONS = {
     "fuel": "gas station",

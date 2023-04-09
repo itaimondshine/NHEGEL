@@ -6,3 +6,18 @@ include_trailing_comma=true
 force_grid_wrap=0
 use_parentheses=true
 
+[tool.black]
+
+line-length = 120
+
+[tool.autoflake]
+remove-unused-variables = true
+ignore-init-module-imports = true
+remove-all-unused-imports = true
+in-place = true
+recursive = true
+
+
+
+
+

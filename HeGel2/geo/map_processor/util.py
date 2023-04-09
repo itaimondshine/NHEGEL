@@ -13,11 +13,10 @@
 # limitations under the License.
 """Library to support map geographical computations."""
 
-import operator
 import sys
 import webbrowser
 from collections import namedtuple
-from typing import Any, List, Optional, Sequence, Text, Tuple
+from typing import List, Optional, Sequence, Text
 
 import folium
 import geographiclib
@@ -28,7 +27,7 @@ from absl import logging
 from geopy.distance import geodesic
 from numpy import int64
 from s2geometry import pywraps2 as s2
-from shapely.geometry import LinearRing, LineString, box, mapping
+from shapely.geometry import LineString
 from shapely.geometry.base import BaseGeometry
 from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.point import Point
@@ -48,9 +47,7 @@ def get_distance_between_points(start_point: Point, end_point: Point) -> float:
     Returns:
       Distance length in meters.
     """
-    dist = ox.distance.great_circle_vec(
-        start_point.y, start_point.x, end_point.y, end_point.x
-    )
+    dist = ox.distance.great_circle_vec(start_point.y, start_point.x, end_point.y, end_point.x)
     assert dist >= 0, f"start_point: {Point} | end_point: {end_point}"
     return dist
 
@@ -67,9 +64,7 @@ def far_cellid(point: Point, cells: pd.DataFrame, far_distance: int) -> Optional
     while far_cell_found is None:
         failed_counter += 1
         if failed_counter > MAX_FAILED_ATTEMPTS:
-            sys.exit(
-                f"Reached max number of failed attempts in far cell calculation for point: {(Point.y, Point.x)}."
-            )
+            sys.exit(f"Reached max number of failed attempts in far cell calculation for point: {(Point.y, Point.x)}.")
         sample_cell = cells.sample(1).iloc[0]
 
         distance = get_distance_between_points(point, sample_cell.point)
@@ -114,7 +109,7 @@ def neighbor_cellid(cellid: int, celllist: Optional[List[int]]) -> int:
             )
         )
 
-    checked_hex = list(set([hex(cell.id()) for cell in checked]))
+    list(set([hex(cell.id()) for cell in checked]))
 
     if neighbor_cell is not None:
         return neighbor_cell
@@ -333,9 +328,7 @@ def cellid_from_point(point: Point, level: int) -> int:
       An id of S2Cellsid that cover the provided Shapely Point.
     """
 
-    assert isinstance(
-        point, Point
-    ), f"Object not a Shapely Point but a type {type(point)}"
+    assert isinstance(point, Point), f"Object not a Shapely Point but a type {type(point)}"
     s2polygon = s2polygon_from_shapely_point(point)
     cellids = get_s2cover_for_s2polygon(s2polygon, level)
     if cellids is None:
@@ -395,9 +388,7 @@ def get_bearing(start: Point, goal: Point) -> float:
       bearing angle given by azi1 (azimuth) is clockwise relative to north, so
       a bearing of 90 degrees is due east, 180 is south, and 270 is west.
     """
-    solution = geographiclib.geodesic.Geodesic.WGS84.Inverse(
-        start.y, start.x, goal.y, goal.x
-    )
+    solution = geographiclib.geodesic.Geodesic.WGS84.Inverse(start.y, start.x, goal.y, goal.x)
     return solution["azi1"] % 360
 
 
@@ -503,9 +494,7 @@ def get_distance_between_geometries(geometry: BaseGeometry, point: Point) -> flo
         return get_distance_between_point_to_geometry(geometry, point)
 
 
-def get_distance_between_point_to_geometry(
-    geometry: BaseGeometry, point: Point
-) -> float:
+def get_distance_between_point_to_geometry(geometry: BaseGeometry, point: Point) -> float:
     """Calculate the distance between point and polygon in meters.
     Arguments:
       route: The line that length calculation will be performed on.
@@ -603,9 +592,7 @@ def point_from_str_coord_xy(coord_str: Text) -> Point:
     Returns:
       A point.
     """
-    list_coords_str = (
-        coord_str.replace("POINT", "").replace("(", "").replace(")", "").split(",")
-    )
+    list_coords_str = coord_str.replace("POINT", "").replace("(", "").replace(")", "").split(",")
     if len(list_coords_str) == 1:
         list_coords_str = list_coords_str[0].split(" ")
 

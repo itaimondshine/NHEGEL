@@ -13,7 +13,6 @@
 # limitations under the License.
 """Defines supported regions and their corresponding polygons."""
 
-from typing import Dict
 
 import attr
 from shapely import wkt
@@ -52,9 +51,7 @@ SUPPORTED_REGIONS = [
     ),
     Region(
         name="Haifa",
-        polygon=box(
-            minx=34.9499666, miny=32.7579523, maxx=35.0797443, maxy=32.8427003, ccw=True
-        ),
+        polygon=box(minx=34.9499666, miny=32.7579523, maxx=35.0797443, maxy=32.8427003, ccw=True),
     ),
     Region(
         name="DC",
@@ -76,9 +73,7 @@ SUPPORTED_REGIONS = [
     ),
     Region(
         name="Jerusalem",
-        polygon=box(
-            minx=35.0852011, miny=31.7096214, maxx=-35.2650457, maxy=31.8826655
-        ),
+        polygon=box(minx=35.0852011, miny=31.7096214, maxx=-35.2650457, maxy=31.8826655),
     ),
     Region(
         name="TelAvivSmall",
@@ -94,9 +89,7 @@ SUPPORTED_REGIONS = [
     ),
     Region(
         name="RUN-map1",
-        polygon=box(
-            minx=-73.99944, miny=40.7484699999999, maxx=-73.98874, maxy=40.7535699999999
-        ),
+        polygon=box(minx=-73.99944, miny=40.7484699999999, maxx=-73.98874, maxy=40.7535699999999),
     ),
     Region(
         name="RUN-map2",

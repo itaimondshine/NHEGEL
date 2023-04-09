@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from geojson_pydantic import Point
 from pydantic import BaseModel, Field

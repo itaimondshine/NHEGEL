@@ -1,4 +1,3 @@
-import math
 from math import atan2, degrees
 from typing import List, Optional, Tuple
 
@@ -10,10 +9,10 @@ import shapely
 def flatten_list(streets: List[Tuple[Optional[str], List[str]]]) -> List[str]:
     valid_streets = []
     for street in streets:
-        if type(street).__name__ == 'list':
+        if type(street).__name__ == "list":
             for sub_list in street:
                 valid_streets.append(sub_list)
-        elif not str(street) == 'nan':
+        elif not str(street) == "nan":
             valid_streets.append(street)
     return list(set(valid_streets))
 
@@ -22,7 +21,7 @@ def polygonizer(lines):
     merged_lines = shapely.ops.linemerge(lines)
     border_lines = shapely.ops.unary_union(merged_lines)
     decomposition = shapely.ops.polygonize(border_lines)
-    polygons = gpd.GeoDataFrame(decomposition, columns=['geometry'])
+    polygons = gpd.GeoDataFrame(decomposition, columns=["geometry"])
     return polygons.reset_index()
 
 
