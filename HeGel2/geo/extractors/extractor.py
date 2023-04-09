@@ -1,15 +1,15 @@
-from typing import Optional, List, Tuple
+from typing import List, Optional, Tuple
 
+import geopandas as gpd
+import osmnx as ox
 import pandas as pd
 import pyproj
 from shapely.geometry import Point
-import geopandas as gpd
-from ..map_processor.map import Map
-import osmnx as ox
-from .utils import polygonizer, get_bearing
 from shapely.ops import unary_union
 
 from ... import settings
+from ..map_processor.map import Map
+from .utils import get_bearing, polygonizer
 
 
 def create_neighborhood_json(city: str):

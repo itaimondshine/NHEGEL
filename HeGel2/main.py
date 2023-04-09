@@ -1,11 +1,13 @@
 import multiprocessing
 from typing import Optional
-from HeGel2 import settings
+
 from geojson_pydantic import Point
+
+from HeGel2 import settings
 from HeGel2.geo.db.mongo import insert_document
+from HeGel2.geo.extractors.extractor import GeoFeatures
 from HeGel2.geo.map_processor import regions
 from HeGel2.geo.map_processor.map import Map
-from HeGel2.geo.extractors.extractor import GeoFeatures
 from HeGel2.geo.models.get_feature import PoiData
 
 

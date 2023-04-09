@@ -1,10 +1,10 @@
 import math
-from typing import List, Tuple, Optional
+from math import atan2, degrees
+from typing import List, Optional, Tuple
 
+import geopandas as gpd
 import numpy as np
 import shapely
-import geopandas as gpd
-from math import atan2, degrees
 
 
 def flatten_list(streets: List[Tuple[Optional[str], List[str]]]) -> List[str]:

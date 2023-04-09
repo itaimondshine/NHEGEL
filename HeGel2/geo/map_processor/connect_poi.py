@@ -1,12 +1,10 @@
-import numpy as np
-
-import pandas as pd
-import geopandas as gpd
-
-import rtree
 import itertools
 
-from shapely.geometry import MultiPoint, LineString
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import rtree
+from shapely.geometry import LineString, MultiPoint
 from shapely.ops import snap, split
 
 pd.options.mode.chained_assignment = None

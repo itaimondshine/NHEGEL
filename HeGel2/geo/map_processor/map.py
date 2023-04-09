@@ -2,7 +2,7 @@ import copy
 import logging
 import os
 from pathlib import Path
-from typing import Tuple, Text, Optional
+from typing import Optional, Text, Tuple
 
 import geopandas as gpd
 import networkx as nx
@@ -11,7 +11,7 @@ import pandas as pd
 from geopandas import GeoSeries
 from shapely.geometry import LineString, Point
 
-from HeGel2.geo.map_processor import osm, regions, util, connect_poi
+from HeGel2.geo.map_processor import connect_poi, osm, regions, util
 
 LARGE_AREAS = 0.0001
 NEIGHBORHOODS_LIBRARY = '/Users/itaimondshine/PycharmProjects/NLP/HeGel2/HeGel2/HeGel2/geo/extractors/city_polygons/'

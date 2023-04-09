@@ -1,6 +1,7 @@
-from typing import List, Optional, Dict, Tuple
-from pydantic import BaseModel, Field
+from typing import Dict, List, Optional, Tuple
+
 from geojson_pydantic import Point
+from pydantic import BaseModel, Field
 
 
 class PoiData(BaseModel):
