@@ -38,15 +38,15 @@ def azimuth_to_street(point, street):
 
 
 def get_bearing(bearing: int) -> str:
-        """
-        Returns the cardinal direction of a given bearing angle in degrees.
-        """
-        if 0 <= bearing <= 90:
-            location = "northeast"
-        elif 90 < bearing <= 180:
-            location = "southeast"
-        elif 180 < bearing <= 270:
-            location = "southwest"
-        else:
-            location = "northwest"
-        return location
+    """
+    Returns the cardinal direction of a given bearing angle in degrees.
+    """
+    if 0 <= bearing <= 90:
+        location = "northeast"
+    elif 90 < bearing <= 180:
+        location = "southeast"
+    elif 180 < bearing <= 270:
+        location = "southwest"
+    else:
+        location = "northwest"
+    return location

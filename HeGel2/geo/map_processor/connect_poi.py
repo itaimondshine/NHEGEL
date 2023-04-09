@@ -55,7 +55,7 @@ def connect_poi(pois, nodes, edges, key_col=None, path=None, threshold=200, knn=
            They will then be converted into epsg:3857 or specified meter_epsg for processing.
     """
 
-    ## STAGE 0: initialization
+    # STAGE 0: initialization
     # 0-1: helper functions
     def find_kne(point, lines):
         # Finds the index of the closet line
@@ -205,7 +205,7 @@ def connect_poi(pois, nodes, edges, key_col=None, path=None, threshold=200, knn=
     Rtree = rtree.index.Index()
     [Rtree.insert(fid, geom.bounds) for fid, geom in edges_meter['geometry'].iteritems()]
 
-    ## STAGE 1: interpolation
+    # STAGE 1: interpolation
     # 1-1: update external nodes (pois)
     print("Updating external nodes...")
     nodes_meter, _ = update_nodes(nodes_meter, pois_meter, ptype='poi', meter_epsg=meter_epsg)
@@ -237,7 +237,7 @@ def connect_poi(pois, nodes, edges, key_col=None, path=None, threshold=200, knn=
     new_lines = [split_line(edges_meter['geometry'][idx], pps) for idx, pps in line_pps_dict.items()]  # bit slow
     edges_meter, _ = update_edges(edges_meter, new_lines, replace=True)
 
-    ## STAGE 2: connection
+    # STAGE 2: connection
     # 2-1: update external edges (projected footways connected to pois)
     # establish new_edges
     print("Updating external links...")
@@ -245,7 +245,7 @@ def connect_poi(pois, nodes, edges, key_col=None, path=None, threshold=200, knn=
     new_lines = [LineString([p1, p2]) for p1, p2 in zip(pois_meter['geometry'], pps_gdf['geometry'])]
     edges_meter, _ = update_edges(edges_meter, new_lines, replace=False)
 
-    ## STAGE 3: output
+    # STAGE 3: output
     # convert CRS
     nodes = nodes_meter.to_crs(epsg=4326)
     edges = edges_meter.to_crs(epsg=4326)
@@ -265,8 +265,8 @@ def connect_poi(pois, nodes, edges, key_col=None, path=None, threshold=200, knn=
         print("Nodes count:", len(nodes_meter))
         print("Node coordinates key count:", len(nodes_id_dict))
     # - examine missing nodes
-    print("Missing 'from' nodes:", len(edges[edges['u'] == None]))
-    print("Missing 'to' nodes:", len(edges[edges['v'] == None]))
+    print("Missing 'from' nodes:", len(edges[edges['u'] is None]))
+    print("Missing 'to' nodes:", len(edges[edges['v'] is None]))
 
     # save and return
     if path:
@@ -274,5 +274,3 @@ def connect_poi(pois, nodes, edges, key_col=None, path=None, threshold=200, knn=
         edges.to_file(path + '/edges.shp')
 
     return nodes, edges
-
-

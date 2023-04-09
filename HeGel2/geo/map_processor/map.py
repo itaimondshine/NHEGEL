@@ -55,8 +55,8 @@ class Map:
         if ('highway' in osm_poi.columns) and ('railway' in osm_poi.columns):
             condition_streets = osm_poi.apply(
                 lambda x: (pd.notnull(x.highway))
-                          or (pd.notnull(x.railway))
-                          or (isinstance(x.geometry, LineString)), axis=1)
+                or (pd.notnull(x.railway))
+                or (isinstance(x.geometry, LineString)), axis=1)
         else:
             condition_streets = osm_poi.apply(
                 lambda x: isinstance(x.geometry, LineString), axis=1)

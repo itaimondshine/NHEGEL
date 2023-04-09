@@ -23,8 +23,3 @@ def save_document():
 def insert_document(poiData: PoiData) -> None:
     document = poiData.dict(by_alias=True, exclude_unset=True)
     collection.insert_one(document)
-
-
-
-
-

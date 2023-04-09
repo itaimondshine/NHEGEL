@@ -66,7 +66,7 @@ class GeoFeatures:
             streets = list(set(streets))
             streets = [street for street in streets if street is not None]
             return streets
-        except:
+        except BaseException:
             return None
 
     def is_poi_in_junction(self, osmid: str) -> bool:
@@ -114,7 +114,7 @@ class GeoFeatures:
             return (
                 list(self.polygons_is_primery[self.polygons_is_primery.contains(point)]['names'].iloc[0]) if is_primery
                 else list(self.polygons_is_no_primery[self.polygons_is_no_primery.contains(point)]['names'].iloc[0]))
-        except:
+        except BaseException:
             return None
 
     def get_neighborhood(self, poi: Point) -> Optional[str]:

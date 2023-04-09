@@ -1,0 +1,6 @@
+[flake8]
+
+extend-ignore = F401, W391
+max-line-length = 120
+ignore = .git, __pycache__, docs, dist
+max-complexity= 18

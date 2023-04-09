@@ -118,7 +118,7 @@ REGION_SUPPORT_MESSAGE = "Supported regions: " + ", ".join(SUPPORTED_REGION_NAME
 def get_region(region_name: str) -> Region:
     try:
         return REGION_LOOKUP[region_name]
-    except:
+    except BaseException:
         raise ValueError(
             f"Unsupported region {region_name}. " "Please choose one of ",
             SUPPORTED_REGION_NAMES,
